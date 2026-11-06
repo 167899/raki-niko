@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Raki Niko",
+    "slug": "raky-mykolaiv",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ua.raky.mykolaiv"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "ua.raky.mykolaiv"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "scheme": "raky",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    }
+  }
+}

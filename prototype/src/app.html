@@ -1,0 +1,230 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Raki Niko</title>
+<style>
+/* Затверджений стиль застосунку: білий екран, фірмовий червоний, темно-сірий текст. Єдиний світлий вигляд. */
+:root{--t:#444;--ink:#111;--red:#D92B20;--soft:#FDECEA;--line:#DDD;--stage:#ECE9E6;color-scheme:light;--g:12px}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--stage);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:14px}
+*{box-sizing:border-box}
+.stage{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.cap{font-size:12px;color:#5b5552;text-align:center}
+.ph{width:360px;max-width:100%;height:min(800px,calc(100dvh - 68px));min-height:560px;background:#fff;border:6px solid var(--ink);border-radius:30px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+@media (max-width:480px){:root{--g:16px}body{background:#fff}.stage{padding:0;height:100%;display:block}.cap{display:none}.ph{width:100%;height:100%;min-height:0;border:0;border-radius:0}}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;line-height:1.2}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--red);outline-offset:1px}
+.ic{width:1em;height:1em;display:block;flex:none}
+.top{display:flex;align-items:center;gap:4px;padding:9px var(--g);flex:none}
+.top.ln{border-bottom:1px solid var(--line);gap:6px}
+.tt{font-size:15px;font-weight:500;flex:1;min-width:0;padding:6px 2px;color:var(--ink)}
+.brand{font-size:15px;font-weight:500;flex:1}
+.ib{width:30px;height:30px;font-size:20px;color:var(--ink);position:relative;display:flex;align-items:center;justify-content:center;flex:none}
+.prof{width:auto;gap:1px;padding:0 2px}
+.dot{position:absolute;top:1px;right:1px;background:var(--red);color:#fff;border-radius:8px;font-size:11px;line-height:14px;min-width:14px;text-align:center}
+.scr{flex:1;overflow-y:auto;min-height:0;-webkit-overflow-scrolling:touch}
+.pad{padding:10px var(--g)}
+input{background:#fff;color:var(--ink);border:1px solid #BBB;border-radius:10px;height:38px;width:100%;padding:0 10px;font:inherit;font-size:14px;transition:border-color .15s,box-shadow .15s}
+input::placeholder{color:var(--t);opacity:1}
+input:focus,input:focus-visible{outline:none;border-color:#F1C9C4;box-shadow:0 0 0 3px rgba(217,43,32,.08),0 2px 10px rgba(217,43,32,.14)}
+.srch{position:relative;padding:0 var(--g) 8px;flex:none}
+.srch .ic{position:absolute;left:calc(var(--g) + 10px);top:9px;color:var(--t);font-size:18px}
+.srch input{padding-left:34px;height:36px}
+.bans{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:12px;cursor:grab}.bans.drag,.cats.drag{scroll-snap-type:none;cursor:grabbing;user-select:none}
+.bn{flex:0 0 100%;scroll-snap-align:start;border-radius:12px;height:106px;padding:12px 14px;display:flex;flex-direction:column;justify-content:center;color:#fff}
+.bn small{font-size:12px}.bn b{font-size:17px;font-weight:500;line-height:1.25}
+.dots{display:flex;justify-content:center;gap:5px;padding:6px 0}
+.dots button{width:18px;height:18px;display:flex;align-items:center;justify-content:center}
+.dots span{width:8px;height:8px;border-radius:4px;background:#AAA}.dots .on span{background:var(--red)}
+.cats{display:flex;gap:6px;padding:0 var(--g) 8px;overflow-x:auto;cursor:grab}
+.cat{background:#fff;color:var(--t);border:1px solid #BBB;border-radius:16px;padding:0 13px;height:32px;font-size:13px;white-space:nowrap;flex:none}
+.cat.on{background:var(--red);border-color:var(--red);color:#fff}
+.grid{padding:0 var(--g) 10px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.card{border:1px solid var(--line);border-radius:12px;overflow:hidden;position:relative;display:flex;flex-direction:column;min-height:186px}
+.pic{height:82px;background:var(--soft);color:var(--red);display:flex;align-items:center;justify-content:center;font-size:30px;flex:none}
+.fav{width:32px;height:32px;display:flex;align-items:center;justify-content:center;color:#444;font-size:21px;flex:none}
+.card>.fav{position:absolute;z-index:1;top:3px;right:3px}
+.fav.on{color:var(--red);font-size:24px}
+.go{background:var(--red);color:#fff;border-radius:8px;height:46px;font-size:14px;font-weight:500;width:100%}
+.go.sm{height:32px;font-size:13px}
+.lg{flex:1 1 0;min-width:0}.ol.lg{height:46px;font-size:14px}
+.ol{background:#fff;color:var(--t);border:1px solid #BBB;border-radius:8px;height:32px;font-size:13px;width:100%}
+.ap{background:var(--red);color:#fff;border-radius:10px;height:38px;font-size:13px;font-weight:500;padding:0 12px;flex:none}
+.scr,.cats,.dd,.bans{scrollbar-width:none}.scr::-webkit-scrollbar,.cats::-webkit-scrollbar,.dd::-webkit-scrollbar,.bans::-webkit-scrollbar{display:none}
+.bar{position:relative;z-index:2;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:end;border-top:1px solid #CCC;background:#fff;padding:0 2px env(safe-area-inset-bottom,0px);flex:none}
+.nav{padding:6px 0 9px;font-size:11px;color:var(--t);width:100%;white-space:nowrap;text-align:center}
+.nav .ic{font-size:20px;margin:0 auto 2px}.nav.on{color:var(--red)}
+.cart{width:46px;height:46px;border-radius:23px;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;margin:-20px auto 3px;border:3px solid #fff;font-size:23px}
+.cart .ic{margin:0;font-size:23px}
+.lay{position:absolute;inset:0;z-index:10;background:rgba(0,0,0,.45)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:16px 16px 0 0;padding:14px}
+.dd{position:absolute;top:48px;right:8px;width:260px;max-height:calc(100% - 60px);overflow-y:auto;background:#fff;border-radius:12px}
+.mi{display:flex;align-items:center;gap:10px;padding:7px 14px;font-size:13px;color:var(--t);width:100%;text-align:left}
+.mi .ic{font-size:17px;color:var(--red)}
+.soc{display:flex;justify-content:center;gap:18px;padding:10px;border-top:1px solid var(--line);font-size:22px;color:var(--red)}
+.sh{display:flex;align-items:center;gap:10px;width:100%;background:#fff;border:1px solid #CCC;border-radius:10px;padding:0 12px;height:44px;font-size:14px;color:var(--t);margin-top:8px}
+.sh .ic{color:var(--red);font-size:18px}.sh.on{border-color:var(--red)}
+.fl{display:block;font-size:12px;color:var(--t);margin:10px 0 4px}
+.er{font-size:12px;color:#B3261E;margin-top:3px}
+.tg{flex:1;height:38px;border-radius:10px;font-size:13px;background:#fff;color:var(--t);border:1px solid #BBB}
+.tg.on{background:var(--red);border-color:var(--red);color:#fff}
+.fx{display:flex;gap:6px}.wrap{flex-wrap:wrap}
+.lb{font-size:12px;color:var(--t);margin:12px 0 6px}
+.st{width:34px;height:34px;background:#fff;border:1px solid #BBB;border-radius:10px;font-size:16px;color:var(--ink);display:flex;align-items:center;justify-content:center;flex:none}
+.st.s{width:30px;height:30px}
+.tr{width:30px;height:30px;color:var(--t);font-size:18px;display:flex;align-items:center;justify-content:center;flex:none}
+.warn{background:#FFF4E5;color:#7A4B00;font-size:12px;border-radius:10px;padding:9px 10px;line-height:1.45}
+.row{border:1px solid var(--line);border-radius:12px;padding:9px;margin-bottom:8px;display:flex;gap:9px}
+.th{width:58px;height:58px;border-radius:9px;background:var(--soft);color:var(--red);display:flex;align-items:center;justify-content:center;font-size:24px;flex:none}
+.foot{padding:10px 14px 14px;border-top:1px solid var(--line);flex:none}
+.sum{display:flex;justify-content:space-between;align-items:center}
+.nm{font-size:13px;font-weight:500;line-height:1.3;color:var(--ink)}
+.h{font-size:14px;font-weight:500;color:var(--ink);margin:12px 0 5px}
+.p{font-size:12px;color:var(--t);line-height:1.5}
+.li{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--t);padding:3px 0}
+.d{display:inline-block;width:10px;height:10px;border-radius:5px;margin-right:6px}
+.step{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--t);line-height:1.45;padding:3px 0}
+.n{width:20px;height:20px;border-radius:10px;background:var(--soft);color:#791F1F;font-size:11px;display:flex;align-items:center;justify-content:center;flex:none}
+.map{display:flex;align-items:center;gap:8px;height:110px;background:#F3F3F3;border-radius:10px;justify-content:center;font-size:13px;color:var(--t)}
+.map .ic{color:var(--red)}
+.pc{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:8px}
+.pb{padding:10px 12px;color:#fff}.pb small{font-size:12px;display:block}.pb b{font-size:15px;font-weight:500;line-height:1.25;display:block}
+.pf{padding:8px 10px;display:flex;align-items:center;gap:8px}
+.cp{background:#fff;color:var(--t);border:1px solid #BBB;border-radius:10px;height:32px;font-size:12px;padding:0 10px;flex:none}
+.c{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--t);padding:6px 0}
+.c .ic{color:var(--red);font-size:18px}
+.box{border:1px solid var(--line);border-radius:12px;padding:6px 11px}
+.card2{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px}
+.oh{display:flex;justify-content:space-between;font-size:14px;font-weight:500;color:var(--ink)}
+.pg{display:flex;gap:3px;margin:7px 0 3px}.pg span{flex:1;height:4px;border-radius:2px;background:#E2E2E2}.pg .on{background:var(--red)}
+.req{background:var(--soft);color:#791F1F;font-size:12px;line-height:1.5;border-radius:8px;padding:8px 9px;margin-top:7px;white-space:pre-line}
+.nt{display:flex;gap:9px;padding:9px 2px;border-bottom:1px solid #EEE;width:100%;text-align:left}
+.nd{width:8px;height:8px;border-radius:4px;background:var(--red);margin-top:5px;flex:none}.nd.off{background:transparent}
+.toast{position:absolute;z-index:20;left:14px;right:14px;bottom:76px;background:var(--ink);color:#fff;font-size:12px;line-height:1.4;padding:9px 11px;border-radius:10px}
+.orl{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--t);margin:12px 0 4px}.orl::before,.orl::after{content:"";flex:1;height:1px;background:var(--line)}
+.sb{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:44px;border-radius:8px;border:1px solid #BBB;background:#fff;color:var(--ink);font-size:14px;margin-top:8px}.sb .ic{font-size:18px}.sb.dark{background:var(--ink);border-color:var(--ink);color:#fff}
+.lnk{color:var(--red);font-size:13px}.fine{font-size:12px;color:var(--t);line-height:1.45;text-align:center;margin-top:12px}.ctr{text-align:center}
+.empty{text-align:center;padding:120px 20px 0;color:var(--t);font-size:14px}.empty .ic{font-size:40px;color:var(--red);margin:0 auto 8px}
+</style>
+{{SPRITE}}
+<main class="stage">
+  <div class="ph" id="app" aria-live="polite"></div>
+  <p class="cap">Raki Niko: інтерактивний прототип. Ціни, зони, акції та замовлення демонстраційні.</p>
+</main>
+<script>
+const LOGO="{{LOGO}}";
+const I=(n,c='')=>`<svg class="ic ${c}" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
+const K={b:{n:'Раки варені',d:'Зі спеціями та кропом',i:'flame',cat:'Варені',f:['Класичні','Гострі','З часником'],c:[['середні','30–40 г',750,28],['великі','40–60 г',950,20]]},
+l:{n:'Раки живі',d:'Щойно з води',i:'droplet',cat:'Живі',f:null,c:[['середні','30–40 г',650,28],['великі','40–60 г',850,20]]}};
+const CATS=['Усі','Варені','Живі','Соуси','Закуски','Напої'];
+const BANNERS=[['Акція','−10% від 3 кг раків','Лише до неділі','#D92B20'],['Новинка','Гострі раки з часником','Спробуйте цього тижня','#111111'],['Актуально','Безкоштовна доставка','Від 2 000 ₴','#A32D2D']];
+const PROMOS=[['Перша покупка','−10% на перше замовлення','Одноразова','RAKI10','#D92B20',10],['Для військових','−15% на кожне замовлення','Багаторазова','HERO15','#111111',15],['Без промокоду','Безкоштовна доставка від 2 000 ₴','До кінця місяця','','#A32D2D',0]];
+const POINTS=['Рюміна 15','Спаська 47/3'];
+const PHONES=['+380936473902','+380633001953','+380633418905'];
+const pretty=p=>p.replace(/^(\+380)(\d\d)(\d{3})(\d\d)(\d\d)$/,'$1 $2 $3 $4 $5');
+const FEE=80;
+const digits=p=>p.replace(/\D/g,'').slice(-9);
+const fullPhone=p=>pretty('+380'+digits(p));
+const okPhone=p=>/^(\+?38)?0\d{9}$/.test(p.replace(/[\s()-]/g,''));
+const okMail=e=>!e.trim()||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
+const S={user:null,accounts:{},auth:{step:'phone',phone:'',name:'',via:''},delAsk:false,stack:['home'],k:'b',c:0,f:0,w:1,fav:{},cart:[],code:'',promo:null,cat:'Усі',q:'',del:true,point:0,name:'',phone:'',email:'',addr:'',over:null,banner:0,shown:{},
+orders:[{id:1024,when:'Сьогодні, 14:20',st:'pay',total:1205,text:'Раки варені, середні, 1,5 кг'},{id:1019,when:'28 жовтня, 18:05',st:'done',total:2030,text:'Раки живі, великі, 2 кг; самовивіз, Рюміна 15',again:[{k:'l',c:1,f:0,w:2}]},{id:1011,when:'3 жовтня, 12:40',st:'off',total:830,text:'Раки живі, середні, 1 кг'}],
+notes:[['Гострі раки вже в меню','Спробуйте новий смак цього тижня','Сьогодні',1],['Безкоштовна доставка','На замовлення від 2 000 ₴','Вчора',1],['Графік роботи','Працюємо щодня 10:00–21:00','2 листопада',0]]};
+const app=document.getElementById('app');
+const m=n=>Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' ₴';
+const q=n=>String(n).replace('.',',')+' кг';
+const nm=(k,c)=>K[k].n+', '+K[k].c[c][0];
+const cur=()=>S.stack[S.stack.length-1];
+const subtotal=()=>S.cart.reduce((s,x)=>s+K[x.k].c[x.c][2]*x.w,0);
+const discount=()=>S.promo?subtotal()*S.promo/100:0;
+const favCount=()=>Object.values(S.fav).filter(Boolean).length;
+const unread=()=>S.notes.filter(n=>n[3]).length;
+let toastTimer;
+function toast(t){let e=document.getElementById('toast');if(!e){e=document.createElement('div');e.id='toast';e.className='toast';e.setAttribute('role','status');app.append(e)}e.style.bottom=cur()=='product'?'128px':'';e.textContent=t;clearTimeout(toastTimer);toastTimer=setTimeout(()=>e.remove(),2200)}
+function copy(t,ok){const done=()=>toast(ok);try{navigator.clipboard.writeText(t).then(done,()=>toast('Код: '+t))}catch{toast('Код: '+t)}}
+const hdr=(t,back=true,extra='')=>`<header class="top ln">${back?`<button class="ib" data-a="back" aria-label="Назад">${I('arrow-left')}</button>`:''}<div class="tt">${t}</div>${extra}</header>`;
+const bar=a=>`<nav class="bar" aria-label="Навігація">${[['home','home','Головна'],['promos','discount','Акції'],['cart','','Кошик'],['delivery','truck-delivery','Доставка']].map(([r,i,l])=>`<button class="nav ${a==r?'on':''}" data-a="tab" data-v="${r}">${r=='cart'?`<span class="cart">${I('shopping-cart')}</span>`:I(i)}${l}</button>`).join('')}<button class="nav" data-a="ask">${I('message-circle')}Запитати</button></nav>`;
+const heart=on=>on?I('heart-filled'):I('heart');
+function grid(){const t=S.q.trim().toLowerCase(),out=[];for(const k in K)K[k].c.forEach((v,c)=>{const n=nm(k,c);if((S.cat=='Усі'||K[k].cat==S.cat)&&n.toLowerCase().includes(t))out.push(`<div class="card"><div class="pic">${I(K[k].i)}</div><button class="fav ${S.fav[k+c]?'on':''}" data-a="fav" data-v="${k+c}" aria-pressed="${!!S.fav[k+c]}" aria-label="В улюблене">${heart(S.fav[k+c])}</button><div style="padding:7px 8px 8px;display:flex;flex-direction:column;flex:1"><div style="font-size:12px;line-height:1.3;flex:1">${n}</div><div style="font-size:13px;font-weight:500;margin:3px 0 5px">${v[2]} ₴ / кг</div><button class="go sm" data-a="open" data-v="${k+c}">Обрати</button></div></div>`)});return out.join('')||'<div class="p" style="grid-column:1/-1;text-align:center;font-size:13px;padding:24px 0">Нічого не знайдено</div>'}
+function banner(){return `<div class="bans" id="bans">${BANNERS.map(b=>`<div class="bn" style="background:${b[3]}"><small>${b[0]}</small><b>${b[1]}</b><small>${b[2]}</small></div>`).join('')}</div><div class="dots" id="dots">${BANNERS.map((_,i)=>`<button class="${i==S.banner?'on':''}" data-a="banner" data-v="${i}" aria-label="Банер ${i+1}"><span></span></button>`).join('')}</div>`}
+const V={
+home(){const fc=favCount(),u=unread();return `<header class="top"><img src="${LOGO}" alt="Логотип Raki Niko" width="30" height="36" style="object-fit:contain"><div class="brand">Raki Niko</div>
+<button class="ib" data-a="go" data-v="favorites" aria-label="Улюблене">${I('heart')}${fc?`<span class="dot">${fc}</span>`:''}</button>
+<button class="ib" data-a="go" data-v="notifications" aria-label="Сповіщення">${I('bell')}${u?`<span class="dot">${u}</span>`:''}</button>
+<button class="ib prof" data-a="menu" aria-label="Відкрити меню">${I('user-circle')}<span style="font-size:14px">${I('chevron-down')}</span></button></header>
+<div class="srch">${I('search')}<input id="search" aria-label="Швидкий пошук" placeholder="Швидкий пошук" value="${S.q}"></div>
+<div class="scr"><div style="padding:0 var(--g)" id="ban">${banner()}</div><div class="cats">${CATS.map(c=>`<button class="cat ${c==S.cat?'on':''}" data-a="cat" data-v="${c}">${c}</button>`).join('')}</div><div class="grid" id="grid">${grid()}</div></div>${bar('home')}`},
+product(){const d=K[S.k],v=d.c[S.c],id=S.k+S.c;return hdr('Товар',true,`<button class="fav ${S.fav[id]?'on':''}" data-a="fav" data-v="${id}" aria-pressed="${!!S.fav[id]}" aria-label="В улюблене">${heart(S.fav[id])}</button>`)+`<div class="scr"><div style="height:140px;background:var(--soft);color:var(--red);display:flex;align-items:center;justify-content:center;font-size:48px">${I(d.i)}</div><div style="padding:10px 14px">
+<div style="font-size:17px;font-weight:500;line-height:1.3">${nm(S.k,S.c)}</div><div class="p" style="margin-top:3px">${d.d}</div>
+<div class="lb">Калібр</div><div class="fx wrap">${d.c.map((x,i)=>`<button class="cat ${i==S.c?'on':''}" style="padding:0 12px" data-a="cal" data-v="${i}">${x[0][0].toUpperCase()+x[0].slice(1)}, ${x[1]}</button>`).join('')}</div>
+${d.f?`<div class="lb">Смак</div><div class="fx wrap">${d.f.map((x,i)=>`<button class="cat ${i==S.f?'on':''}" style="padding:0 12px" data-a="flav" data-v="${i}">${x}</button>`).join('')}</div>`:''}
+<div class="lb">Вага</div><div style="display:flex;align-items:center;gap:8px"><button class="st" data-a="w" data-v="-.5" aria-label="Менше">${I('minus')}</button><div style="flex:1;text-align:center;font-size:15px;font-weight:500">${q(S.w)}</div><button class="st" data-a="w" data-v=".5" aria-label="Більше">${I('plus')}</button></div>
+<div class="p" style="margin-top:8px">Приблизно ${Math.round(S.w*v[3])} шт.</div><div class="warn" style="margin-top:10px">Менеджер уточнить вагу і суму перед оплатою.</div></div></div>
+<div class="foot"><div class="sum" style="margin-bottom:8px"><span style="font-size:13px;color:var(--t)">${m(v[2])} / кг</span><span style="font-size:17px;font-weight:500">${m(v[2]*S.w)}</span></div>${S.added?`<div class="fx" style="gap:8px"><button class="ol lg" data-a="tab" data-v="home">Продовжити покупки</button><button class="go lg" data-a="go" data-v="cart">Оформити</button></div>`:`<button class="go" data-a="add">Додати в кошик</button>`}</div>`},
+cart(){if(!S.cart.length)return hdr('Кошик')+`<div class="scr"><div class="empty">${I('shopping-cart')}Кошик порожній<div style="width:150px;margin:14px auto 0"><button class="go sm" data-a="tab" data-v="home">До меню</button></div></div></div>${bar('cart')}`;
+return hdr('Кошик')+`<div class="scr pad">${S.cart.map((x,i)=>{const d=K[x.k],v=d.c[x.c];return `<div class="row"><div class="th">${I(d.i)}</div><div style="flex:1;min-width:0"><div style="display:flex;gap:4px;align-items:flex-start"><div class="nm" style="flex:1">${nm(x.k,x.c)}</div><button class="tr" data-a="rm" data-v="${i}" aria-label="Видалити">${I('trash')}</button></div><div class="p" style="margin-bottom:6px">${v[1]}${d.f?', '+d.f[x.f].toLowerCase():''}</div><div style="display:flex;align-items:center;gap:5px"><button class="st s" data-a="line" data-v="${i}:-.5" aria-label="Менше">${I('minus')}</button><div style="min-width:44px;text-align:center;font-size:13px">${q(x.w)}</div><button class="st s" data-a="line" data-v="${i}:.5" aria-label="Більше">${I('plus')}</button><div style="flex:1;text-align:right;font-size:14px;font-weight:500">${m(v[2]*x.w)}</div></div></div></div>`}).join('')}<div class="warn">Точну вагу й суму менеджер підтвердить перед оплатою.</div></div>
+<div style="padding:8px 14px 12px;border-top:1px solid var(--line);flex:none"><label for="code" style="display:block;font-size:12px;color:var(--t);margin-bottom:4px">Промокод</label><div class="fx"><input id="code" placeholder="Введіть промокод" autocomplete="off" value="${S.code}"><button class="ap" data-a="promo">Застосувати</button></div><div id="pm" class="er" ${S.pmsg?'':'hidden'} style="${S.promo?'color:#1E6A3A':''}">${S.pmsg||''}</div>
+<div class="sum" style="font-size:13px;color:var(--t);margin:9px 0 3px"><span>Доставка</span><span>при оформленні</span></div>${S.promo?`<div class="sum" style="font-size:13px;color:#1E6A3A;margin-bottom:3px"><span>Знижка</span><span>−${m(discount())}</span></div>`:''}<div class="sum" style="margin-bottom:8px"><span style="font-size:14px;font-weight:500">Разом без доставки</span><span style="font-size:17px;font-weight:500">${m(subtotal()-discount())}</span></div><button class="go" data-a="go" data-v="checkout">Оформити замовлення</button></div>${bar('cart')}`},
+favorites(){const l=Object.keys(S.fav).filter(i=>S.fav[i]);return hdr('Улюблені')+`<div class="scr pad">${l.length?l.map(i=>{const k=i[0],c=+i[1],d=K[k];return `<div class="row"><div class="th">${I(d.i)}</div><div style="flex:1;min-width:0"><div style="display:flex;gap:4px"><div class="nm" style="flex:1">${nm(k,c)}</div><button class="fav on" data-a="fav" data-v="${i}" aria-label="Прибрати з улюбленого">${heart(1)}</button></div><div style="font-size:13px;font-weight:500;margin:2px 0 6px">${d.c[c][2]} ₴ / кг</div><button class="go sm" data-a="open" data-v="${i}">Обрати</button></div></div>`}).join(''):`<div class="empty">${I('heart')}Тут будуть ваші улюблені товари</div>`}</div>${bar('')}`},
+checkout(){return hdr('Оформлення')+`<div class="scr" style="padding:4px 14px 12px"><label class="fl" for="name">Ім'я *</label><input id="name" value="${S.name}"><div class="er" id="name-e" hidden>Вкажіть ім'я</div>
+<label class="fl" for="phone">Телефон *</label><input id="phone" type="tel" placeholder="050 123 45 67" value="${S.phone}"><div class="er" id="phone-e" hidden>Вкажіть номер із 10 цифр</div>
+<label class="fl" for="email">Email (за бажанням)</label><input id="email" type="email" value="${S.email}"><div class="fl">Як отримати</div><div class="fx"><button class="tg ${S.del?'on':''}" data-a="del" data-v="1">Доставка</button><button class="tg ${S.del?'':'on'}" data-a="del" data-v="0">Самовивіз</button></div>
+${S.del?`<label class="fl" for="addr">Адреса доставки *</label><input id="addr" placeholder="Вулиця, будинок, квартира" value="${S.addr}"><div class="er" id="addr-e" hidden>Вкажіть адресу доставки</div><div class="map" style="height:80px;margin-top:8px">${I('map-pin')}Карта із зонами</div>`:`<div class="fl">Точка самовивозу</div>${POINTS.map((p,i)=>`<button class="sh ${i==S.point?'on':''}" ${i?'':'style="margin-top:0"'} data-a="point" data-v="${i}">${I('map-pin')}${p}</button>`).join('')}`}</div><div class="foot"><button class="go" data-a="submit">Надіслати замовлення</button></div>`},
+promos(){return hdr('Акції')+`<div class="scr pad">${PROMOS.map(p=>`<div class="pc"><div class="pb" style="background:${p[4]}"><small>${p[0]}</small><b>${p[1]}</b></div><div class="pf"><div style="flex:1;font-size:12px;color:var(--t);line-height:1.4">${p[2]}${p[3]?`<br>Код: <span style="color:var(--ink);font-weight:500">${p[3]}</span>`:''}</div>${p[3]?`<button class="cp" data-a="copy" data-v="${p[3]}">Копіювати</button>`:''}</div></div>`).join('')}</div>${bar('promos')}`},
+delivery(){return hdr('Оплата і доставка')+`<div class="scr" style="padding:2px 12px 8px"><div class="h">Зони доставки</div><div class="map">${I('map-pin')}Карта із зонами</div><div class="li" style="margin-top:6px"><span><span class="d" style="background:var(--red)"></span>Центр</span><span>80 ₴, замовлення від 500 ₴</span></div><div class="li"><span><span class="d" style="background:var(--ink)"></span>Північ</span><span>120 ₴, замовлення від 700 ₴</span></div><div class="p" style="margin-top:4px">Доставляє партнерська кур'єрська служба по Миколаєву.</div><div class="h">Самовивіз</div>${POINTS.map(p=>`<div class="li"><span>${p}</span><span>щодня 10:00–21:00</span></div>`).join('')}<div class="h">Оплата</div>${['Ви надсилаєте замовлення в застосунку.','Менеджер перевіряє наявність і уточнює вагу.',"У замовленні з'являються реквізити й точна сума.",'Після оплати готуємо й передаємо замовлення.'].map((t,i)=>`<div class="step"><span class="n">${i+1}</span>${t}</div>`).join('')}</div>${bar('delivery')}`},
+about(){return hdr('Про компанію')+`<div class="scr" style="padding:10px 14px 14px"><div style="text-align:center"><img src="${LOGO}" alt="Логотип Raki Niko" width="78" height="93" style="object-fit:contain"></div><div class="h">Хто ми</div><div class="p">Raki Niko продає раків у Миколаєві. Текст про компанію додасте ви.</div><div class="h">Телефони</div><div class="box">${PHONES.map(p=>`<a class="c" href="tel:${p}">${I('phone')}${pretty(p)}</a>`).join('')}</div><div class="h">Адреси</div><div class="box">${POINTS.map(p=>`<div class="c">${I('map-pin')}${p}</div>`).join('')}</div><div class="h">Робочі години</div><div class="li" style="font-size:13px"><span>Щодня</span><span>10:00–21:00</span></div><div style="display:flex;gap:18px;font-size:24px;color:var(--red);padding-top:10px">${I('brand-instagram')}${I('brand-facebook')}${I('brand-tiktok')}${I('brand-telegram')}</div></div>`},
+orders(){const L={new:['Очікує підтвердження','#D92B20',1],pay:['Очікує оплату','#D92B20',2],done:['Виконано','#1E6A3A',0],off:['Скасовано','#444',0]};return hdr('Мої замовлення')+`<div class="scr pad">${S.orders.map(o=>{const l=L[o.st];return `<div class="card2"><div class="oh"><span>№ ${o.id}</span><span>${m(o.total)}</span></div><div class="p">${o.when}</div><div style="font-size:13px;color:${l[1]};margin-top:5px">${l[0]}</div>${l[2]?`<div class="pg">${[1,2,3,4,5].map(n=>`<span class="${n<=l[2]?'on':''}"></span>`).join('')}</div>`:''}<div class="p" style="margin-top:4px">${o.text}</div>${o.st=='new'?'<div class="warn" style="margin-top:7px">Сума попередня: менеджер уточнить вагу перед оплатою.</div>':''}${o.st=='pay'?`${S.shown[o.id]?`<div class="req">Отримувач: дані ФОП буде додано\nIBAN: буде додано\nПризначення: замовлення № ${o.id}</div>`:''}<div style="height:7px"></div><button class="go sm" data-a="req" data-v="${o.id}">${S.shown[o.id]?'Сховати реквізити':'Показати реквізити'}</button>`:''}${o.again?`<div style="height:7px"></div><button class="ol" data-a="again" data-v="${o.id}">Повторити замовлення</button>`:''}</div>`}).join('')}</div>`},
+hotline(){return hdr('Гаряча лінія')+`<div class="scr pad"><div class="p">Щодня 10:00–21:00. Натисніть номер, щоб зателефонувати.</div><div class="h">Зателефонувати</div>${PHONES.map((p,i)=>`<a class="sh" ${i?'':'style="margin-top:4px"'} href="tel:${p}">${I('phone')}${pretty(p)}</a>`).join('')}<div class="h">Написати нам</div><button class="sh" style="margin-top:4px" data-a="stub">${I('message-circle')}Viber</button><button class="sh" data-a="stub">${I('brand-telegram')}Telegram</button></div>`},
+privacy(){return hdr('Політика конфіденційності')+`<div class="scr pad"><div class="warn">Макет. Остаточний текст має перевірити юрист.</div>${[['Які дані ми збираємо',"Ім'я, телефон, email за бажанням, адреса доставки й історія замовлень."],['Навіщо вони потрібні',"Щоб прийняти, підтвердити й доставити замовлення, а також зв'язатися з вами."],['Кому ми їх передаємо',"Кур'єрській службі лише дані, потрібні для доставки."],['Ваші права','Ви можете змінити дані або попросити їх видалити.'],['Контакти','Гаряча лінія: +380 93 647 39 02.']].map(x=>`<div class="h">${x[0]}</div><div class="p">${x[1]}</div>`).join('')}</div>`},
+offer(){return hdr('Публічна оферта')+`<div class="scr pad"><div class="warn">Макет. Остаточний текст має підготувати юрист.</div>${[['Продавець','Дані ФОП буде додано.'],['Замовлення','Замовлення діє після підтвердження менеджером. Вага й сума можуть бути уточнені до оплати.'],['Ціна й оплата','Оплата за реквізитами після підтвердження замовлення.'],['Доставка й самовивіз','Доставка в зонах обслуговування або самовивіз із точок продажу.'],['Повернення','Умови буде додано.']].map(x=>`<div class="h">${x[0]}</div><div class="p">${x[1]}</div>`).join('')}</div>`},
+invite(){return hdr('Запросити друзів')+`<div class="scr pad" style="display:flex;flex-direction:column"><div style="background:var(--red);color:#fff;border-radius:12px;padding:14px"><div style="font-size:17px;font-weight:500;line-height:1.25">−5% вам і другу</div><div style="font-size:12px;margin-top:3px;line-height:1.45">Разова знижка кожному учаснику. Умови задаються в адмінці.</div></div><div class="h">Ваш код запрошення</div><div class="box" style="display:flex;align-items:center;justify-content:space-between;padding:10px"><span style="font-size:17px;font-weight:500">NIKO5K2</span><button style="font-size:13px;color:var(--red)" data-a="copy" data-v="NIKO5K2">Копіювати</button></div><div class="h">Як це працює</div><div class="p">1. Надішліть посилання другу.<br>2. Друг реєструється і вводить код під час першого замовлення.<br>3. Кожен отримує знижку.</div><div class="h">Ваші запрошення</div><div class="li"><span>Запрошено друзів</span><span>0</span></div><div class="li"><span>Доступні знижки</span><span>0</span></div><div style="flex:1;min-height:14px"></div><button class="go" data-a="copy" data-v="NIKO5K2">Поділитися посиланням</button></div>`},
+login(){const a=S.auth,reg=a.step=='reg',logo=`<div class="ctr" style="margin:6px 0 4px"><img src="${LOGO}" alt="Логотип Raki Niko" width="78" height="93" style="object-fit:contain"></div>`,social=`<div class="orl">або</div><button class="sb" data-a="social" data-v="Google">${I('brand-google')}Увійти через Google</button><button class="sb dark" data-a="social" data-v="Apple">${I('brand-apple')}Увійти через Apple</button>`;
+return hdr(reg?'Реєстрація':'Вхід')+`<div class="scr" style="padding:10px 14px 14px">${logo}<p class="p ctr" style="margin:0 0 4px">${reg?'Створіть акаунт, щоб бачити замовлення й отримувати знижки.':'Увійдіть у свій акаунт.'}</p>${reg?`<label class="fl" for="l-name">Ім'я *</label><input id="l-name" autocomplete="name" value="${a.name}"><div class="er" id="l-name-e" hidden>Вкажіть ім'я</div>`:''}<label class="fl" for="l-phone">Телефон${reg?' *':''}</label><input id="l-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="050 123 45 67" value="${a.phone}"><div class="er" id="l-phone-e" hidden></div><div style="height:12px"></div><button class="go" data-a="${reg?'reg':'enter'}">${reg?'Зареєструватися':'Увійти'}</button>${social}<p class="ctr p" style="margin:14px 0 0;font-size:13px">${reg?'Вже є акаунт?':'Немає акаунта?'} <button class="lnk" data-a="authStep" data-v="${reg?'phone':'reg'}">${reg?'Увійти':'Зареєструватися'}</button></p><p class="fine">Продовжуючи, ви приймаєте <button class="lnk" style="font-size:12px" data-a="go" data-v="offer">Публічну оферту</button> і <button class="lnk" style="font-size:12px" data-a="go" data-v="privacy">Політику конфіденційності</button>.</p></div>`},
+profile(){const u=S.user;if(!u)return V.login();return hdr('Профіль')+`<div class="scr" style="padding:10px 14px 14px"><div class="ctr" style="font-size:44px;color:var(--red);display:flex;justify-content:center">${I('user-circle')}</div><label class="fl" for="p-name">Ім'я *</label><input id="p-name" value="${u.name}"><div class="er" id="p-name-e" hidden>Вкажіть ім'я</div><label class="fl" for="p-phone">Телефон</label><input id="p-phone" type="tel" placeholder="050 123 45 67" value="${u.phone?fullPhone(u.phone):''}"><div class="er" id="p-phone-e" hidden>Вкажіть український номер із 10 цифр</div><label class="fl" for="p-email">Email (за бажанням)</label><input id="p-email" type="email" value="${u.email}"><div class="er" id="p-email-e" hidden>Перевірте email</div><div style="height:12px"></div><button class="go sm" style="height:40px" data-a="saveProfile">Зберегти</button><div style="height:8px"></div><button class="ol" style="height:40px" data-a="logout">Вийти</button><div class="ctr" style="margin-top:16px">${S.delAsk?`<div class="warn" style="text-align:left">Акаунт, адреси й історію замовлень буде видалено. Цю дію не можна скасувати.</div><div class="fx" style="margin-top:8px"><button class="ol" style="flex:1" data-a="delNo">Скасувати</button><button class="go sm" style="flex:1" data-a="delYes">Видалити</button></div>`:`<button class="lnk" data-a="delAsk">Видалити акаунт</button>`}</div></div>`},
+notifications(){return hdr('Повідомлення')+`<div class="scr pad">${S.notes.map((n,i)=>`<button class="nt" data-a="note" data-v="${i}"><span class="nd ${n[3]?'':'off'}"></span><span style="flex:1"><span style="display:block;font-size:13px;font-weight:500;color:var(--ink)">${n[0]}</span><span class="p" style="display:block">${n[1]}</span><span style="display:block;font-size:11px;color:var(--t);margin-top:2px">${n[2]}</span></span></button>`).join('')}</div>`}
+};
+function overlay(){if(S.over=='menu')return `<div class="lay" data-a="close"><div class="dd" data-stop><div style="padding:10px 12px;display:flex;gap:9px;align-items:center;background:var(--soft)"><span style="font-size:28px;color:var(--red)">${I('user-circle')}</span><button style="flex:1;text-align:left" data-a="login"><span style="display:block;font-size:14px;font-weight:500;color:#791F1F">${S.user?S.user.name:'Гість'}</span><span style="display:block;font-size:12px;color:#791F1F">${S.user?(S.user.phone?fullPhone(S.user.phone):'Телефон не вказано'):'Увійти або зареєструватися'}</span></button><button class="ib" data-a="close" aria-label="Закрити">${I('x')}</button></div><div style="padding:4px 0">${[['home','Головна','home'],['receipt','Мої замовлення','orders'],['info-circle','Про компанію','about'],['shopping-cart','Кошик','cart'],['headset','Гаряча лінія','hotline'],['credit-card','Оплата і доставка','delivery'],['map-pin','Контакти','about'],['shield-lock','Політика конфіденційності','privacy'],['file-text','Публічна оферта','offer'],['gift','Запросити друзів','invite'],['bell','Повідомлення','notifications']].map(x=>`<button class="mi" data-a="${['home','cart','delivery'].includes(x[2])?'tab':'go'}" data-v="${x[2]}">${I(x[0])}${x[1]}</button>`).join('')}</div><div class="soc">${I('brand-instagram')}${I('brand-facebook')}${I('brand-tiktok')}${I('brand-telegram')}</div></div></div>`;
+if(S.over=='ask')return `<div class="lay" data-a="close"><div class="sheet" data-stop><div class="sum" style="font-size:15px;font-weight:500">Запитати<button class="ib" data-a="close" aria-label="Закрити">${I('x')}</button></div><button class="sh" data-a="go" data-v="hotline">${I('phone')}Зателефонувати</button><button class="sh" data-a="stub">${I('message-circle')}Написати у Viber</button><button class="sh" data-a="stub">${I('brand-telegram')}Написати в Telegram</button></div></div>`;return ''}
+function render(keep){const old=app.querySelector('.scr'),top=keep&&old?old.scrollTop:0;const oc=app.querySelector('.cats'),ob=document.getElementById('bans');if(oc)S.catsX=oc.scrollLeft;if(ob)S.banner=Math.round(ob.scrollLeft/ob.clientWidth);app.innerHTML=V[cur()]()+overlay();const s=app.querySelector('.scr');if(s)s.scrollTop=top;const bans=document.getElementById('bans'),cats=app.querySelector('.cats');if(bans){bans.scrollLeft=S.banner*bans.clientWidth;bans.onscroll=markDot}if(cats){cats.scrollLeft=S.catsX||0;cats.onscroll=()=>{S.catsX=cats.scrollLeft}}if(location.hash.slice(1)!=cur()){try{history.replaceState(null,'','#'+cur())}catch{}}}
+function markDot(){const b=document.getElementById('bans'),d=document.getElementById('dots');if(!b||!d)return;S.banner=Math.round(b.scrollLeft/b.clientWidth);[...d.children].forEach((x,i)=>x.classList.toggle('on',i==S.banner))}
+function showBanner(i){const b=document.getElementById('bans');if(b)b.scrollTo({left:i*b.clientWidth,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})}
+const go=r=>{S.over=null;if(cur()!=r)S.stack.push(r);render()};
+const tab=r=>{S.over=null;S.stack=r=='home'?['home']:['home',r];render()};
+function signIn(u){S.user=u;S.name=u.name;S.phone=u.phone;S.email=u.email;S.stack=S.stack.filter(r=>r!='login'&&r!='profile');if(!S.stack.length)S.stack=['home'];render()}
+const A={
+go,tab,back(){const a=S.auth;if(cur()=='login'&&a.step!='phone'){a.step='phone';render();return}if(S.stack.length>1)S.stack.pop();render()},menu(){S.over='menu';render(1)},ask(){S.over='ask';render(1)},close(){S.over=null;render(1)},
+login(){if(S.user){go('profile');return}S.auth={step:'phone',phone:'',name:'',via:''};go('login')},
+authStep(v){S.auth.step=v;render()},
+social(v){const k=v.toLowerCase(),u=S.accounts[k]||(S.accounts[k]={key:k,name:'Клієнт '+v,phone:'',email:''});signIn(u);toast('Ви увійшли через '+v)},
+enter(){const a=S.auth,e=document.getElementById('l-phone-e');if(!okPhone(a.phone)){e.textContent='Вкажіть український номер із 10 цифр';e.hidden=false;return}const u=S.accounts[digits(a.phone)];if(!u){e.textContent='Акаунт із цим номером не знайдено. Зареєструйтеся';e.hidden=false;return}signIn(u);toast('Ви увійшли')},
+reg(){const a=S.auth,n=document.getElementById('l-name-e'),e=document.getElementById('l-phone-e'),e1=!a.name.trim(),e2=!okPhone(a.phone);n.hidden=!e1;e.hidden=!e2;if(e2)e.textContent='Вкажіть український номер із 10 цифр';if(e1||e2)return;const k=digits(a.phone);if(S.accounts[k]){e.textContent='Цей номер уже зареєстровано. Увійдіть';e.hidden=false;return}const u={key:k,name:a.name.trim(),phone:a.phone,email:''};S.accounts[k]=u;signIn(u);toast('Акаунт створено')},
+saveProfile(){const u=S.user,n=document.getElementById('p-name').value,e=document.getElementById('p-email').value,t=document.getElementById('p-phone').value,e1=!n.trim(),e2=!okMail(e),e3=!!t.trim()&&!okPhone(t);document.getElementById('p-name-e').hidden=!e1;document.getElementById('p-email-e').hidden=!e2;document.getElementById('p-phone-e').hidden=!e3;if(e1||e2||e3)return;u.name=n.trim();u.email=e.trim();u.phone=t.trim();S.name=u.name;S.email=u.email;S.phone=u.phone;toast('Збережено')},
+logout(){S.user=null;S.name=S.phone=S.email='';S.delAsk=false;S.stack=['home'];render();toast('Ви вийшли з акаунта')},
+delAsk(){S.delAsk=true;render(1)},delNo(){S.delAsk=false;render(1)},
+delYes(){delete S.accounts[S.user.key];S.user=null;S.name=S.phone=S.email='';S.delAsk=false;S.stack=['home'];render();toast('Акаунт видалено')},stub(){toast('Посилання буде додано')},
+banner(v){S.touched=Date.now();showBanner(+v)},cat(v){S.cat=v;render(1)},fav(v){S.fav[v]=!S.fav[v];render(1)},
+open(v){S.k=v[0];S.c=+v[1];S.f=0;S.w=1;S.added=false;go('product')},cal(v){S.c=+v;S.added=false;render(1)},flav(v){S.f=+v;S.added=false;render(1)},w(v){S.w=Math.max(1,S.w+ +v);S.added=false;render(1)},
+add(){const o=S.cart.find(y=>y.k==S.k&&y.c==S.c&&y.f==S.f);if(o)o.w+=S.w;else S.cart.push({k:S.k,c:S.c,f:S.f,w:S.w});S.added=true;render(1);toast('Додано в кошик')},
+rm(v){S.cart.splice(+v,1);if(!S.cart.length){S.promo=null;S.pmsg='';S.code=''}render(1)},line(v){const[i,d]=v.split(':'),x=S.cart[+i];x.w=Math.max(1,x.w+ +d);render(1)},
+promo(){const c=S.code.trim().toUpperCase(),p=PROMOS.find(x=>x[3]&&x[3]==c);if(!c){S.promo=null;S.pmsg='Введіть промокод'}else if(p){S.promo=p[5];S.pmsg='Промокод застосовано'}else{S.promo=null;S.pmsg='Такого промокоду немає'}render(1)},
+del(v){S.del=v=='1';render(1)},point(v){S.point=+v;render(1)},
+submit(){const e={name:!S.name.trim(),phone:S.phone.replace(/\D/g,'').length<10,addr:S.del&&!S.addr.trim()};let bad=false;for(const k in e){const n=document.getElementById(k+'-e');if(n)n.hidden=!e[k];bad=bad||e[k]}if(bad)return;
+if(!S.cart.length){toast('Кошик порожній');return}
+if(!S.user){const k=digits(S.phone),u=S.accounts[k]||{key:k,name:S.name.trim(),phone:S.phone,email:S.email.trim()};S.accounts[k]=u;S.user=u}else if(!S.user.phone)S.user.phone=S.phone;
+const id=S.orders.reduce((a,o)=>Math.max(a,o.id),0)+1,fee=S.del?FEE:0,text=S.cart.map(x=>`${nm(x.k,x.c)}, ${q(x.w)}`).join('; ')+(S.del?'':'; самовивіз, '+POINTS[S.point]);
+const o={id,when:'Щойно',st:'new',total:subtotal()-discount()+fee,text,again:S.cart.map(x=>({...x}))};S.orders.unshift(o);S.cart=[];S.promo=null;S.pmsg='';S.code='';S.stack=['home','orders'];render();toast('Замовлення надіслано');
+setTimeout(()=>{o.st='pay';S.notes.unshift([`Замовлення № ${id} підтверджено`,'Реквізити для оплати вже в замовленні','Щойно',1]);if(cur()=='orders')render(1);toast(`Менеджер підтвердив замовлення № ${id}`)},6000)},
+req(v){S.shown[v]=!S.shown[v];render(1)},again(v){const o=S.orders.find(x=>x.id==+v);o.again.forEach(x=>S.cart.push({...x}));tab('cart')},note(v){S.notes[+v][3]=0;render(1)},
+copy(v){copy(v,'Скопійовано: '+v)}
+};
+app.addEventListener('click',e=>{const stop=e.target.closest('[data-stop]'),t=e.target.closest('[data-a]');if(!t||(t.classList.contains('lay')&&stop))return;A[t.dataset.a](t.dataset.v)});
+app.addEventListener('input',e=>{const t=e.target;if(t.id=='search'){S.q=t.value;document.getElementById('grid').innerHTML=grid()}else if(t.id=='code'){S.code=t.value;const p=document.getElementById('pm');if(p)p.hidden=true;S.pmsg=''}else if(t.id.startsWith('l-')){S.auth[t.id.slice(2)]=t.value;const n=document.getElementById(t.id+'-e');if(n)n.hidden=true}else if(t.id in{name:1,phone:1,email:1,addr:1}){S[t.id]=t.value;const n=document.getElementById(t.id+'-e');if(n)n.hidden=true}});
+setInterval(()=>{if(cur()=='home'&&!S.over&&!(Date.now()-(S.touched||0)<6000))showBanner((S.banner+1)%BANNERS.length)},4000);
+let drag=null,dragged=false;
+app.addEventListener('pointerdown',e=>{const el=e.target.closest('.bans,.cats');if(!el)return;S.touched=Date.now();if(e.pointerType!='mouse')return;drag={el,x:e.clientX,left:el.scrollLeft};dragged=false});
+addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x;if(Math.abs(dx)>5){dragged=true;drag.el.classList.add('drag')}if(dragged)drag.el.scrollLeft=drag.left-dx});
+addEventListener('pointerup',()=>{if(!drag)return;const el=drag.el;drag=null;S.touched=Date.now();el.classList.remove('drag');if(el.id=='bans')showBanner(Math.round(el.scrollLeft/el.clientWidth))});
+app.addEventListener('click',e=>{if(dragged){dragged=false;e.stopPropagation();e.preventDefault()}},true);
+const start=location.hash.slice(1);if(V[start]&&start!='home')S.stack=['home',start];
+render();
+</script>

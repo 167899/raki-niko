@@ -1,0 +1,31 @@
+{
+  "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+  "preferredVersions": {
+    "php": "8.3",
+    "wp": "latest"
+  },
+  "steps": [
+    {
+      "step": "setSiteLanguage",
+      "language": "uk"
+    },
+    {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "vfs",
+        "path": "/wordpress/wp-content/raky-cache/woocommerce.zip"
+      },
+      "options": {
+        "activate": true
+      }
+    },
+    {
+      "step": "activatePlugin",
+      "pluginPath": "raky-shop/raky-shop.php"
+    },
+    {
+      "step": "runPHP",
+      "code": "<?php require '/wordpress/wp-content/plugins/raky-shop/tools/seed-demo.php';"
+    }
+  ]
+}
