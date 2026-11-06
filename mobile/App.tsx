@@ -79,16 +79,23 @@ function Main() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <ShopProvider>
-        <NavProvider>
-          <Main />
-        </NavProvider>
-      </ShopProvider>
+      <View style={styles.stage}>
+        <View style={styles.page}>
+          <ShopProvider>
+            <NavProvider>
+              <Main />
+            </NavProvider>
+          </ShopProvider>
+        </View>
+      </View>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  // На широкому екрані вебверсія лишається завширшки з телефон.
+  stage: { flex: 1, alignItems: 'center', backgroundColor: Platform.OS === 'web' ? '#ECE9E6' : colors.white },
+  page: { flex: 1, width: '100%', maxWidth: Platform.OS === 'web' ? 430 : undefined },
   root: { flex: 1, backgroundColor: colors.white },
   toast: {
     position: 'absolute',

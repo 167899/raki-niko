@@ -30,7 +30,7 @@ const STORAGE = {
   statuses: 'raky.statuses.v1',
 };
 
-const ORDER_POLL_MS = 30_000;
+const ORDER_POLL_MS = process.env.EXPO_PUBLIC_DEMO === '1' ? 3_000 : 30_000;
 
 const STATUS_NOTES: Partial<Record<OrderStatusCode, (order: Order) => [string, string]>> = {
   awaiting_payment: ({ id }) => [`Замовлення № ${id} підтверджено`, 'Реквізити для оплати вже в замовленні'],

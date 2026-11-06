@@ -1,3 +1,7 @@
+import { ApiError } from './apiError';
+
+export { ApiError };
+
 const BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://127.0.0.1:9400').replace(/\/$/, '');
 
 export type Category = { id: number; name: string; slug: string };
@@ -116,16 +120,6 @@ export type NewOrder = {
   expected_total: number;
 };
 
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public readonly code: string,
-    public readonly status: number,
-  ) {
-    super(message);
-  }
-}
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
@@ -147,7 +141,7 @@ const post = <T,>(path: string, body: unknown) =>
     body: JSON.stringify(body),
   });
 
-export const api = {
+const liveApi = {
   catalog: () => request<Catalog>('/catalog'),
   config: () => request<Config>('/config'),
   banners: () => request<Banner[]>('/banners'),
@@ -158,3 +152,8 @@ export const api = {
   createOrder: (order: NewOrder) => post<Order>('/orders', order),
   order: (id: number, key: string) => request<Order>(`/orders/${id}&key=${encodeURIComponent(key)}`),
 };
+
+export type Api = typeof liveApi;
+
+// Веб-версія на GitHub Pages працює без сервера, на вбудованих демо-даних.
+export const api: Api = process.env.EXPO_PUBLIC_DEMO === '1' ? require('./demoApi').demoApi : liveApi;
