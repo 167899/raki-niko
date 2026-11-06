@@ -30,6 +30,15 @@ const MONTHS = ['січня', 'лютого', 'березня', 'квітня', 
 
 const dayKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 
+/** «2026-11-09 14:30» → «9 листопада, 14:30». Рік показуємо, лише якщо він не поточний. */
+export function readyLabel(value: string, now = new Date()): string {
+  const [day, time] = value.split(' ');
+  const [year, month, date] = day.split('-').map(Number);
+  return `${date} ${MONTHS[month - 1]}${year === now.getFullYear() ? '' : ` ${year}`}, ${time}`;
+}
+
+export const monthDay = (date: Date) => `${date.getDate()} ${MONTHS[date.getMonth()]}`;
+
 /** «Сьогодні», «Вчора» або «2 листопада». */
 export function dayLabel(iso: string | null, now = new Date()): string {
   if (!iso) return '';

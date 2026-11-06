@@ -8,7 +8,6 @@ add_action('admin_menu', static function () {
 /** Поля застосунку на вкладці «Основне» товару: [ключ мети, підпис, підказка]. */
 function raky_product_fields(): array {
 	return [
-		[RAKY_META_GROUP, 'Група калібрів', 'Однакова назва об\'єднує товари на одній картці, наприклад «Раки варені».'],
 		[RAKY_META_CALIBER, 'Калібр', 'Наприклад «середні».'],
 		[RAKY_META_CALIBER_HINT, 'Розмір', 'Наприклад «30–40 г».'],
 		[RAKY_META_PER_KG, 'Штук у кілограмі', 'Приблизна кількість для підказки клієнту.'],
@@ -82,6 +81,126 @@ add_action('woocommerce_admin_process_product_object', static function (WC_Produ
 		}
 	}
 	$product->update_meta_data(RAKY_META_FLAVORS, $flavors);
+});
+
+/**
+ * Кнопки в дереві категорій товару. «Додати підкатегорію» відкриває стандартну форму WordPress
+ * із вибраною батьківською категорією, «Видалити» викликає raky_delete_category.
+ */
+add_action('wp_ajax_raky_delete_category', static function () {
+	check_ajax_referer('raky_delete_category');
+	$term_id = absint($_POST['term_id'] ?? 0);
+	if (! current_user_can('delete_product_terms')) {
+		wp_send_json_error('Недостатньо прав.');
+	}
+	if ($term_id === raky_default_category()) {
+		wp_send_json_error('Розділ «Без категорії» видалити не можна.');
+	}
+	$result = wp_delete_term($term_id, 'product_cat');
+	if (is_wp_error($result) || ! $result) {
+		wp_send_json_error('Не вдалося видалити категорію.');
+	}
+	wp_send_json_success();
+});
+
+add_action('admin_footer', static function () {
+	$screen = get_current_screen();
+	if (! $screen || $screen->id !== 'product') {
+		return;
+	}
+	?>
+	<script>
+	jQuery(function ($) {
+		var defaultCategory = <?php echo wp_json_encode((string) raky_default_category()); ?>;
+		var deleteNonce = <?php echo wp_json_encode(wp_create_nonce('raky_delete_category')); ?>;
+		// Після додавання WordPress дублює батьківську категорію зверху: переносимо нову підкатегорію в наявну.
+		function mergeDuplicates() {
+			var rows = {};
+			$('#product_catchecklist > li').get().reverse().forEach(function (element) {
+				var row = $(element);
+				var id = row.find('> label input').val();
+				if (!rows[id]) {
+					rows[id] = row;
+					return;
+				}
+				var list = rows[id].children('ul.children');
+				if (!list.length) list = $('<ul class="children"></ul>').appendTo(rows[id]);
+				row.children('ul.children').children('li').each(function () {
+					var value = $(this).find('> label input').val();
+					if (!list.find('> li > label input[value="' + value + '"]').length) $(this).appendTo(list);
+				});
+				row.remove();
+			});
+		}
+		function decorate() {
+			mergeDuplicates();
+			$('#product_catchecklist li').each(function () {
+				var row = $(this);
+				if (row.children('.raky-row-actions').length) return;
+				var id = row.find('> label input').val();
+				var actions = $('<div class="raky-row-actions" style="margin:2px 0 6px 24px;font-size:12px"></div>');
+				if (row.parent().is('#product_catchecklist')) {
+					$('<button type="button" class="button-link raky-add-sub" style="margin-right:10px;font-size:12px"></button>').text('+ Додати підкатегорію').data('term', id).appendTo(actions);
+				}
+				if (id !== defaultCategory) {
+					$('<button type="button" class="button-link button-link-delete raky-delete" style="font-size:12px"></button>').text('× Видалити').data('term', id).appendTo(actions);
+				}
+				row.children('label').first().after(actions);
+			});
+		}
+		function defaultRow() {
+			return $('#product_catchecklist > li').filter(function () {
+				return $(this).find('> label input').val() === defaultCategory;
+			});
+		}
+		$('#product_catchecklist').on('click', '.raky-add-sub', function () {
+			if ($('#product_cat-adder').hasClass('wp-hidden-children')) $('#product_cat-add-toggle').trigger('click');
+			$('#newproduct_cat_parent').val($(this).data('term'));
+			$('#newproduct_cat').trigger('focus');
+		});
+		$('#product_catchecklist').on('click', '.raky-delete', function () {
+			var button = $(this);
+			var row = button.closest('li');
+			var name = row.find('> label').text().trim();
+			var question = 'Видалити «' + name + '»? Підкатегорії й товари перейдуть у «Без категорії».';
+			if (!window.confirm(question)) return;
+			button.prop('disabled', true);
+			$.post(ajaxurl, { action: 'raky_delete_category', term_id: button.data('term'), _ajax_nonce: deleteNonce })
+				.done(function (response) {
+					if (!response.success) {
+						button.prop('disabled', false);
+						window.alert(response.data);
+						return;
+					}
+					var target = defaultRow();
+					var list = target.children('ul.children');
+					if (!list.length) list = $('<ul class="children"></ul>').appendTo(target);
+					row.children('ul.children').children('li').appendTo(list);
+					if (row.find('> label input').prop('checked')) target.find('> label input').prop('checked', true);
+					$('#newproduct_cat_parent option[value="' + button.data('term') + '"]').remove();
+					$('#product_catchecklist-pop input[value="' + button.data('term') + '"]').closest('li').remove();
+					row.remove();
+				})
+				.fail(function () {
+					button.prop('disabled', false);
+					window.alert('Не вдалося видалити категорію. Спробуйте ще раз.');
+				});
+		});
+		decorate();
+		$(document).ajaxComplete(decorate);
+	});
+	</script>
+	<?php
+});
+
+/** Час приготування на сторінці замовлення. Коментар клієнта WooCommerce показує сам. */
+add_action('woocommerce_admin_order_data_after_order_details', static function (WC_Order $order) {
+	$ready = (string) $order->get_meta('_raky_ready_at');
+	$date  = $ready === '' ? false : DateTimeImmutable::createFromFormat('Y-m-d H:i', $ready, wp_timezone());
+	printf(
+		'<p class="form-field form-field-wide"><strong>Готуємо на:</strong> %s</p>',
+		esc_html($date ? $date->format('d.m.Y H:i') : 'якнайшвидше')
+	);
 });
 
 function raky_save_settings(): ?string {

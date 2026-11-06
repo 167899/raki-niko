@@ -2,6 +2,14 @@
 export const PHONES = ['+380936473902', '+380633001953', '+380633418905'];
 export const HOURS = '10:00–21:00';
 
+/** Години, на які можна замовити приготування. */
+export const SLOT_FIRST_HOUR = 10;
+export const SLOT_END_HOUR = 21;
+export const SLOT_STEP_MINUTES = 15;
+export const SLOT_LEAD_MINUTES = 60;
+/** На скільки днів уперед можна оформити передзамовлення. */
+export const SLOT_HORIZON_DAYS = 365;
+
 export const PRIVACY: [string, string][] = [
   ['Які дані ми збираємо', "Ім'я, телефон, email за бажанням, адреса доставки й історія замовлень."],
   ['Навіщо вони потрібні', "Щоб прийняти, підтвердити й доставити замовлення, а також зв'язатися з вами."],

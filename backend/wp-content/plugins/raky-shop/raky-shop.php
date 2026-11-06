@@ -12,7 +12,6 @@ define('RAKY_NS', 'raky/v1');
 define('RAKY_META_UNIT', '_raky_unit');   // kg | pcs
 define('RAKY_META_STEP', '_raky_step');   // крок кількості
 define('RAKY_META_MIN', '_raky_min');     // мінімальне замовлення
-define('RAKY_META_GROUP', '_raky_group');           // спільна назва калібрів, наприклад «Раки варені»
 define('RAKY_META_CALIBER', '_raky_caliber');       // «середні»
 define('RAKY_META_CALIBER_HINT', '_raky_caliber_hint'); // «30–40 г»
 define('RAKY_META_PER_KG', '_raky_per_kg');         // приблизно штук у кілограмі
@@ -26,6 +25,8 @@ require_once __DIR__ . '/includes/orders.php';
 require_once __DIR__ . '/includes/promotions.php';
 require_once __DIR__ . '/includes/sync.php';
 require_once __DIR__ . '/includes/admin.php';
+
+register_activation_hook(__FILE__, 'raky_name_default_category');
 
 add_action('rest_api_init', static function () {
 	// Застосунок звертається напряму, а веб-збірка йде з іншого origin.
@@ -51,6 +52,11 @@ add_action('rest_api_init', static function () {
 		'methods'             => 'GET',
 		'permission_callback' => '__return_true',
 		'callback'            => 'raky_rest_delivery_check',
+	]);
+	register_rest_route(RAKY_NS, '/delivery-quote', [
+		'methods'             => 'GET',
+		'permission_callback' => '__return_true',
+		'callback'            => 'raky_rest_delivery_quote',
 	]);
 	register_rest_route(RAKY_NS, '/orders', [
 		'methods'             => 'POST',

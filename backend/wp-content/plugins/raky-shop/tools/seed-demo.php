@@ -21,19 +21,10 @@ update_option('raky_settings', [
 	'requisites'    => "ДЕМО-РЕКВІЗИТИ, не використовувати\nОтримувач: ФОП Приклад\nIBAN: UA00 0000 0000 0000 0000 0000 000",
 	'support_phone' => '+380936473902',
 	'outlets'       => [
-		['id' => 'center', 'name' => 'Рюміна 15', 'address' => 'Миколаїв, вул. Рюміна, 15', 'phone' => '+380936473902', 'lat' => 46.9750, 'lng' => 31.9946, 'hours' => 'Щодня 10:00–21:00'],
+		['id' => 'center', 'name' => 'Рюміна 15', 'address' => 'Миколаїв, вул. Рюміна, 15', 'phone' => '+380936473902', 'lat' => 46.96842, 'lng' => 31.97566, 'hours' => 'Щодня 10:00–21:00'],
 		['id' => 'north', 'name' => 'Спаська 47/3', 'address' => 'Миколаїв, вул. Спаська, 47/3', 'phone' => '+380936473902', 'lat' => 47.0120, 'lng' => 32.0080, 'hours' => 'Щодня 10:00–21:00'],
 	],
-	'zones'         => [
-		[
-			'id' => 'center', 'name' => 'Центр', 'outlet_id' => 'center', 'fee' => 80, 'min_order' => 500, 'color' => '#D92B20',
-			'polygon' => [[46.948, 31.950], [46.948, 32.040], [46.992, 32.040], [46.992, 31.950]],
-		],
-		[
-			'id' => 'north', 'name' => 'Північ', 'outlet_id' => 'north', 'fee' => 120, 'min_order' => 700, 'color' => '#111111',
-			'polygon' => [[46.992, 31.950], [46.992, 32.060], [47.035, 32.060], [47.035, 31.950]],
-		],
-	],
+	'zones'         => json_decode(file_get_contents(__DIR__ . '/delivery-zones.json'), true),
 ]);
 
 foreach ([
@@ -63,6 +54,8 @@ foreach ([
 
 wp_insert_post(['post_type' => 'raky_news', 'post_status' => 'publish', 'post_title' => 'Гострі раки вже в меню', 'post_excerpt' => 'Спробуйте новий смак цього тижня']);
 
+raky_name_default_category();
+
 $category_ids = [];
 foreach (['Варені' => ['vareni', 1], 'Живі' => ['zhyvi', 2], 'Соуси' => ['sousy', 3], 'Закуски' => ['zakusky', 4], 'Напої' => ['napoi', 5], 'Суші' => ['sushi', 6]] as $name => [$slug, $order]) {
 	$term = term_exists($slug, 'product_cat') ?: wp_insert_term($name, 'product_cat', ['slug' => $slug]);
@@ -77,9 +70,15 @@ $products = [
 	['RK-BOIL-L', 'Раки варені, великі', 'Зі спеціями та кропом', 950, 'vareni', 'Раки варені', 'великі', '40–60 г', 20, $boiled_flavors],
 	['RK-CREAM-L', 'Раки вершкові, добірні', '', 1300, 'vareni', 'Раки вершкові', 'добірні', '70–90 г', 12, $cream_flavors, 'raki-vershkovi.jpg'],
 	['RK-CREAM-M', 'Раки вершкові, середні', '', 1100, 'vareni', 'Раки вершкові', 'середні', '40–50 г', 23, $cream_flavors, 'raki-vershkovi.jpg'],
-	['RK-LIVE-S', 'Раки живі, середні', 'Щойно з води', 650, 'zhyvi', 'Раки живі', 'середні', '30–40 г', 28, []],
-	['RK-LIVE-L', 'Раки живі, великі', 'Щойно з води', 850, 'zhyvi', 'Раки живі', 'великі', '40–60 г', 20, []],
+	['RK-LIVE-S', 'Раки живі, середні', 'Щойно з води', 650, 'zhyvi', '', 'середні', '30–40 г', 28, []],
+	['RK-LIVE-L', 'Раки живі, великі', 'Щойно з води', 850, 'zhyvi', '', 'великі', '40–60 г', 20, []],
 ];
+/** Підкатегорія об'єднує калібри одного товару. */
+function raky_seed_subcategory(string $name, int $parent): int {
+	$term = term_exists($name, 'product_cat', $parent) ?: wp_insert_term($name, 'product_cat', ['parent' => $parent]);
+	return (int) $term['term_id'];
+}
+
 /** Завантажує фото з tools/seed-images у медіатеку. Один файл використовується лише раз. */
 function raky_seed_image(string $file): int {
 	static $ids = [];
@@ -100,7 +99,8 @@ foreach ($products as $index => $row) {
 	$product->set_name($name);
 	$product->set_short_description($description);
 	$product->set_regular_price((string) $price);
-	$product->set_category_ids([$category_ids[$category]]);
+	// Без підкатегорії товар записується прямо в основну категорію.
+	$product->set_category_ids([$group === '' ? $category_ids[$category] : raky_seed_subcategory($group, $category_ids[$category])]);
 	$product->set_menu_order($index);
 	$product->set_status('publish');
 	if (isset($row[10])) {
@@ -109,7 +109,6 @@ foreach ($products as $index => $row) {
 	$product->update_meta_data(RAKY_META_UNIT, 'kg');
 	$product->update_meta_data(RAKY_META_STEP, 0.5);
 	$product->update_meta_data(RAKY_META_MIN, 1);
-	$product->update_meta_data(RAKY_META_GROUP, $group);
 	$product->update_meta_data(RAKY_META_CALIBER, $caliber);
 	$product->update_meta_data(RAKY_META_CALIBER_HINT, $hint);
 	$product->update_meta_data(RAKY_META_PER_KG, $per_kg);

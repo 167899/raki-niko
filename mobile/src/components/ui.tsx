@@ -113,6 +113,7 @@ const TABS: { id: Tab; icon: IconName; label: string }[] = [
 
 export function BottomBar({ active }: { active?: Tab }) {
   const nav = useNav();
+  const { lines } = useShop();
   return (
     <View style={styles.bar}>
       {TABS.map((tab) => {
@@ -123,6 +124,11 @@ export function BottomBar({ active }: { active?: Tab }) {
             {tab.id === 'cart' ? (
               <View style={styles.cart}>
                 <Icon name="shopping-cart" size={23} color={colors.white} />
+                {lines.length > 0 && (
+                  <View style={styles.cartCount} accessibilityLabel={`Товарів у кошику: ${lines.length}`}>
+                    <Text style={styles.cartCountText}>{lines.length}</Text>
+                  </View>
+                )}
               </View>
             ) : (
               <View style={styles.navIcon}>
@@ -202,7 +208,9 @@ export function Chip({ label, on, onPress, style }: { label: string; on: boolean
  * Рамка й тінь фокусу живуть на обгортці: на Android зміна рамки чи тіні самого TextInput
  * замінює його фон, і відступи тексту скидаються.
  */
-export function Input({ style, inset = 10, onFocus, onBlur, ...props }: Omit<TextInputProps, 'style'> & { style?: StyleProp<ViewStyle>; inset?: number }) {
+type InputProps = Omit<TextInputProps, 'style'> & { style?: StyleProp<ViewStyle>; inset?: number };
+
+export function Input({ style, inset = 10, onFocus, onBlur, ...props }: InputProps) {
   const [focused, setFocused] = useState(false);
   return (
     <View style={[styles.inputBox, focused && styles.inputFocused, style]}>
@@ -217,23 +225,25 @@ export function Input({ style, inset = 10, onFocus, onBlur, ...props }: Omit<Tex
           setFocused(false);
           onBlur?.(event);
         }}
-        style={[styles.input, { paddingLeft: inset }]}
+        style={[styles.input, { paddingLeft: inset }, props.multiline && styles.inputMultiline]}
       />
     </View>
   );
 }
 
-export function Field({ label, error, ...props }: TextInputProps & { label: string; error?: string }) {
+export function Field({ label, error, labelStyle, ...props }: InputProps & { label: string; error?: string; labelStyle?: StyleProp<TextStyle> }) {
   return (
     <View>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <Text style={[styles.fieldLabel, labelStyle]}>{label}</Text>
       <Input accessibilityLabel={label} {...props} />
       {!!error && <Text style={styles.error}>{error}</Text>}
     </View>
   );
 }
 
-export const FieldLabel = ({ children }: { children: ReactNode }) => <Text style={styles.fieldLabel}>{children}</Text>;
+export const FieldLabel = ({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) => (
+  <Text style={[styles.fieldLabel, style]}>{children}</Text>
+);
 
 export const ErrorText = ({ children, color }: { children: ReactNode; color?: string }) => (
   <Text style={[styles.error, color ? { color } : null]}>{children}</Text>
@@ -382,6 +392,21 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: colors.white,
   },
+  cartCount: {
+    position: 'absolute',
+    top: -7,
+    right: -7,
+    minWidth: 19,
+    height: 19,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.red,
+    backgroundColor: colors.white,
+    paddingHorizontal: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartCountText: { fontSize: 11, lineHeight: 14, fontWeight: '500', color: colors.red },
   button: { backgroundColor: colors.red, borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
   buttonLg: { height: 46 },
   buttonSm: { height: 32 },
@@ -415,6 +440,7 @@ const styles = StyleSheet.create({
     // Веб-перегляд: прибираємо рамку браузера, фокус показує власна тінь.
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null),
   },
+  inputMultiline: { textAlignVertical: 'top', paddingVertical: 8 },
   inputFocused: {
     borderColor: colors.focus,
     boxShadow: '0 0 0 3px rgba(217,43,32,0.08), 0 2px 10px rgba(217,43,32,0.14)',

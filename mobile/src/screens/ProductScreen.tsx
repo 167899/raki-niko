@@ -34,7 +34,9 @@ export function ProductScreen({ productId }: { productId: number }) {
 
   const calibers = useMemo(() => {
     if (!product?.group) return [];
-    return (catalog?.products ?? []).filter((item) => item.group === product.group && item.in_stock);
+    return (catalog?.products ?? [])
+      .filter((item) => item.group === product.group && item.in_stock)
+      .sort((a, b) => a.price - b.price);
   }, [catalog, product?.group]);
 
   if (!product) {

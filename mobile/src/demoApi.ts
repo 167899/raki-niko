@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Api, Banner, Catalog, Config, DeliveryCheck, NewOrder, News, Order, OrderItem, Product } from './api';
+import type { Api, Banner, Catalog, Config, NewOrder, News, Order, OrderItem, Product } from './api';
 import { ApiError } from './apiError';
+import zones from './demoZones.json';
 
 /** Демо для GitHub Pages: дані вбудовані, підтвердження менеджера імітується через кілька секунд. */
 const CONFIRM_AFTER_MS = 6000;
@@ -45,8 +46,8 @@ const catalog: Catalog = {
     product(2, 'Раки варені, великі', 'Зі спеціями та кропом', 1, 950, 'Раки варені', 'великі', '40–60 г', 20, boiled),
     product(3, 'Раки вершкові, добірні', '', 1, 1300, 'Раки вершкові', 'добірні', '70–90 г', 12, creamy, PHOTO),
     product(4, 'Раки вершкові, середні', '', 1, 1100, 'Раки вершкові', 'середні', '40–50 г', 23, creamy, PHOTO),
-    product(5, 'Раки живі, середні', 'Щойно з води', 2, 650, 'Раки живі', 'середні', '30–40 г', 28, []),
-    product(6, 'Раки живі, великі', 'Щойно з води', 2, 850, 'Раки живі', 'великі', '40–60 г', 20, []),
+    product(5, 'Раки живі, середні', 'Щойно з води', 2, 650, '', 'середні', '30–40 г', 28, []),
+    product(6, 'Раки живі, великі', 'Щойно з води', 2, 850, '', 'великі', '40–60 г', 20, []),
   ],
 };
 
@@ -59,26 +60,7 @@ const config: Config = {
     { id: 'center', name: 'Рюміна 15', address: 'Миколаїв, вул. Рюміна, 15', phone: '+380936473902', lat: 46.975, lng: 31.9946, hours },
     { id: 'north', name: 'Спаська 47/3', address: 'Миколаїв, вул. Спаська, 47/3', phone: '+380936473902', lat: 47.012, lng: 32.008, hours },
   ],
-  zones: [
-    {
-      id: 'center',
-      name: 'Центр',
-      outlet_id: 'center',
-      fee: 80,
-      min_order: 500,
-      color: '#D92B20',
-      polygon: [[46.948, 31.95], [46.948, 32.04], [46.992, 32.04], [46.992, 31.95]],
-    },
-    {
-      id: 'north',
-      name: 'Північ',
-      outlet_id: 'north',
-      fee: 120,
-      min_order: 700,
-      color: '#111111',
-      polygon: [[46.992, 31.95], [46.992, 32.06], [47.035, 32.06], [47.035, 31.95]],
-    },
-  ],
+  zones: zones as Config['zones'],
 };
 
 const banners: Banner[] = [
@@ -108,18 +90,6 @@ function discountFor(code: string, items: OrderItem[]): number {
   return Math.round(subtotalOf(items) * percent) / 100;
 }
 
-function zoneAt(lat: number, lng: number) {
-  return config.zones.find(({ polygon }) => {
-    let inside = false;
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-      const [yi, xi] = polygon[i];
-      const [yj, xj] = polygon[j];
-      if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
-    }
-    return inside;
-  });
-}
-
 async function loadOrders(): Promise<Order[]> {
   const raw = await AsyncStorage.getItem(ORDERS_KEY);
   return raw ? JSON.parse(raw) : [];
@@ -138,19 +108,11 @@ export const demoApi: Api = {
   config: async () => config,
   banners: async () => banners,
   news: async () => news,
-  checkDelivery: async (lat, lng): Promise<DeliveryCheck> => {
-    const zone = zoneAt(lat, lng);
-    return zone
-      ? { in_zone: true, zone_id: zone.id, zone_name: zone.name, outlet_id: zone.outlet_id, fee: zone.fee, min_order: zone.min_order }
-      : { in_zone: false };
-  },
+  // У демо немає пошуку адрес: вартість доставки уточнює менеджер.
+  quoteDelivery: async () => ({ found: false }),
   checkPromo: async (code, items) => ({ code: code.trim().toUpperCase(), discount: discountFor(code, items) }),
   createOrder: async (order: NewOrder) => {
     const subtotal = subtotalOf(order.items);
-    const zone = order.delivery_type === 'delivery' ? zoneAt(order.lat ?? 0, order.lng ?? 0) : undefined;
-    if (zone && subtotal < zone.min_order) {
-      throw new ApiError(`Мінімальне замовлення для цієї зони — ${zone.min_order} грн.`, 'raky_min_order', 422);
-    }
     const discount = order.promo ? discountFor(order.promo, order.items) : 0;
     const orders = await loadOrders();
     const outlet = config.outlets.find((candidate) => candidate.id === order.outlet_id);
@@ -166,13 +128,15 @@ export const demoApi: Api = {
         flavor: item.flavor,
         total: unitPrice(item) * item.quantity,
       })),
-      shipping: zone?.fee ?? 0,
+      shipping: 0,
       discount,
       delivery_type: order.delivery_type,
-      total: subtotal - discount + (zone?.fee ?? 0),
+      total: subtotal - discount,
       has_weighted: true,
       address: outlet?.name ?? order.address,
       payment_method: order.payment_method,
+      ready_at: order.ready_at,
+      comment: order.comment,
       requisites: null,
     };
     await AsyncStorage.setItem(ORDERS_KEY, JSON.stringify([created, ...orders]));

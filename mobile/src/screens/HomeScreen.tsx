@@ -78,7 +78,24 @@ function Banners({ banners }: { banners: Banner[] }) {
   );
 }
 
-function ProductCard({ product }: { product: Product }) {
+/** Картка веде на товар; для підкатегорії це найдешевший калібр, інші обираються в товарі. */
+type Card = { product: Product; title: string; fromPrice: boolean };
+
+/** Усі: кожен товар окремо. Категорія: одна картка на підкатегорію. */
+function buildCards(products: Product[], grouped: boolean): Card[] {
+  if (!grouped) return products.map((product) => ({ product, title: product.name, fromPrice: false }));
+  const groups = new Map<string, Product[]>();
+  for (const product of products) {
+    const key = product.group || `product-${product.id}`;
+    groups.set(key, [...(groups.get(key) ?? []), product]);
+  }
+  return [...groups.values()].map((items) => {
+    const cheapest = items.reduce((best, item) => (item.price < best.price ? item : best));
+    return { product: cheapest, title: cheapest.group || cheapest.name, fromPrice: items.length > 1 };
+  });
+}
+
+function ProductCard({ card: { product, title, fromPrice } }: { card: Card }) {
   const nav = useNav();
   const { favorites } = useShop();
   return (
@@ -88,8 +105,11 @@ function ProductCard({ product }: { product: Product }) {
         <Heart id={product.id} on={favorites.includes(product.id)} />
       </View>
       <View style={styles.cardBody}>
-        <Text style={styles.cardName}>{product.name}</Text>
-        <Text style={styles.cardPrice}>{unitPrice(product.price, product.unit)}</Text>
+        <Text style={styles.cardName}>{title}</Text>
+        <Text style={styles.cardPrice}>
+          {fromPrice ? 'від ' : ''}
+          {unitPrice(product.price, product.unit)}
+        </Text>
         <Button size="sm" title="Обрати" onPress={() => nav.go({ name: 'product', productId: product.id })} />
       </View>
     </View>
@@ -102,12 +122,13 @@ export function HomeScreen() {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<number | null>(null);
 
-  const products = useMemo(() => {
+  const cards = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return (catalog?.products ?? []).filter(
+    const found = (catalog?.products ?? []).filter(
       (product) =>
         product.in_stock && (category === null || product.category_id === category) && product.name.toLowerCase().includes(query),
     );
+    return buildCards(found, category !== null);
   }, [catalog, search, category]);
 
   return (
@@ -160,10 +181,10 @@ export function HomeScreen() {
               <Chip key={item.id} label={item.name} on={item.id === category} onPress={() => setCategory(item.id)} />
             ))}
           </ScrollView>
-          {products.length ? (
+          {cards.length ? (
             <View style={styles.grid}>
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
+              {cards.map((card) => (
+                <ProductCard key={card.product.id} card={card} />
               ))}
             </View>
           ) : (

@@ -15,6 +15,38 @@ function raky_product_min(WC_Product $product): float {
 	return $min > 0 ? $min : raky_product_step($product);
 }
 
+/** Системний розділ для товарів без категорії. Клієнти його не бачать. */
+function raky_default_category(): int {
+	return (int) get_option('default_product_cat');
+}
+
+function raky_name_default_category(): void {
+	$id = raky_default_category();
+	if ($id) {
+		wp_update_term($id, 'product_cat', ['name' => 'Без категорії', 'slug' => 'bez-katehorii']);
+	}
+}
+
+/**
+ * Перед видаленням категорії підкатегорії переходять у «Без категорії» разом зі своїми товарами,
+ * а товари, що лишилися б без жодної категорії, туди ж. Працює і для сторінки «Категорії».
+ */
+add_action('pre_delete_term', static function (int $term_id, string $taxonomy) {
+	$default = raky_default_category();
+	if ($taxonomy !== 'product_cat' || ! $default || $term_id === $default) {
+		return;
+	}
+	foreach (get_terms(['taxonomy' => 'product_cat', 'parent' => $term_id, 'hide_empty' => false, 'fields' => 'ids']) as $child) {
+		wp_update_term($child, 'product_cat', ['parent' => $default]);
+	}
+	foreach (get_objects_in_term($term_id, 'product_cat') as $product_id) {
+		$others = array_diff(wp_get_object_terms($product_id, 'product_cat', ['fields' => 'ids']), [$term_id]);
+		if (! $others) {
+			wp_set_object_terms((int) $product_id, [$default], 'product_cat');
+		}
+	}
+}, 10, 2);
+
 /** Адреса зображення на тому хості, через який прийшов запит: телефон у локальній мережі не бачить 127.0.0.1. */
 function raky_public_url(?string $url): ?string {
 	$host = (string) ($_SERVER['HTTP_HOST'] ?? '');
@@ -47,6 +79,22 @@ function raky_product_flavors(WC_Product $product): array {
 }
 
 /**
+ * Основна категорія товару й підкатегорія, що об'єднує його калібри.
+ *
+ * @return array{0: int, 1: string} [ID основної категорії, назва підкатегорії]
+ */
+function raky_product_placement(WC_Product $product): array {
+	$ids = $product->get_category_ids();
+	foreach ($ids as $id) {
+		$ancestors = get_ancestors($id, 'product_cat', 'taxonomy');
+		if ($ancestors) {
+			return [(int) end($ancestors), get_term($id, 'product_cat')->name];
+		}
+	}
+	return [(int) ($ids[0] ?? 0), ''];
+}
+
+/**
  * Категорії без товарів не повертаються: "Суші" з'являться в застосунку
  * самі, щойно в категорії опублікують перший товар.
  */
@@ -61,8 +109,9 @@ function raky_rest_catalog(): array {
 	$items    = [];
 	$term_ids = [];
 	foreach ($products as $product) {
-		$category_id = $product->get_category_ids()[0] ?? 0;
-		if (! $category_id) {
+		[$category_id, $group] = raky_product_placement($product);
+		// Товари з «Без категорії» чекають на розподіл і клієнтам не показуються.
+		if (! $category_id || $category_id === raky_default_category()) {
 			continue;
 		}
 		$term_ids[$category_id] = true;
@@ -81,8 +130,8 @@ function raky_rest_catalog(): array {
 			'in_stock'    => $product->is_in_stock(),
 			'image'       => raky_public_url($image ?: null),
 			'image_large' => raky_public_url($large ?: null),
-			// Товари з однаковою групою показуються в застосунку як калібри одного товару.
-			'group'        => (string) $product->get_meta(RAKY_META_GROUP),
+			// Товари однієї підкатегорії показуються в застосунку як калібри одного товару.
+			'group'        => $group,
 			'caliber'      => (string) $product->get_meta(RAKY_META_CALIBER),
 			'caliber_hint' => (string) $product->get_meta(RAKY_META_CALIBER_HINT),
 			'per_kg'       => (float) $product->get_meta(RAKY_META_PER_KG),

@@ -3,15 +3,16 @@ defined('ABSPATH') || exit;
 
 const RAKY_ORDER_RATE_LIMIT  = 10;
 const RAKY_ORDER_RATE_WINDOW = 600;
+const RAKY_QUOTE_RATE_LIMIT  = 60;
 
 function raky_error(string $code, string $message, int $status = 400, array $extra = []): WP_Error {
 	return new WP_Error($code, $message, array_merge(['status' => $status], $extra));
 }
 
-function raky_rate_limited(): bool {
-	$key   = 'raky_rl_' . md5((string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+function raky_rate_limited(string $bucket = 'order', int $limit = RAKY_ORDER_RATE_LIMIT): bool {
+	$key   = 'raky_rl_' . md5($bucket . (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
 	$count = (int) get_transient($key);
-	if ($count >= RAKY_ORDER_RATE_LIMIT) {
+	if ($count >= $limit) {
 		return true;
 	}
 	set_transient($key, $count + 1, RAKY_ORDER_RATE_WINDOW);
@@ -75,6 +76,26 @@ function raky_resolve_lines($raw_items) {
 	return $lines;
 }
 
+/**
+ * Час приготування від клієнта: «Y-m-d H:i» у часовому поясі магазину.
+ * Порожнє значення означає «якнайшвидше».
+ *
+ * @return string|WP_Error
+ */
+function raky_parse_ready_at(string $value) {
+	if ($value === '') {
+		return '';
+	}
+	$date = DateTimeImmutable::createFromFormat('!Y-m-d H:i', $value, wp_timezone());
+	if (! $date || $date->format('Y-m-d H:i') !== $value) {
+		return raky_error('raky_bad_ready_at', 'Оберіть дату й час.');
+	}
+	if ($date < new DateTimeImmutable('now', wp_timezone())) {
+		return raky_error('raky_bad_ready_at', 'Цей час уже минув. Оберіть інший.', 422);
+	}
+	return $value;
+}
+
 function raky_rest_create_order(WP_REST_Request $request) {
 	if (raky_rate_limited()) {
 		return raky_error('raky_rate_limited', 'Забагато спроб. Спробуйте за кілька хвилин.', 429);
@@ -88,6 +109,10 @@ function raky_rest_create_order(WP_REST_Request $request) {
 	$promo   = sanitize_text_field((string) $request->get_param('promo'));
 	$pickup  = $request->get_param('delivery_type') === 'pickup';
 	$cash    = $request->get_param('payment_method') === 'cash';
+	$ready   = raky_parse_ready_at((string) $request->get_param('ready_at'));
+	if (is_wp_error($ready)) {
+		return $ready;
+	}
 
 	if ($name === '') {
 		return raky_error('raky_bad_name', "Вкажіть ім'я.");
@@ -110,19 +135,11 @@ function raky_rest_create_order(WP_REST_Request $request) {
 		}
 		$address = $outlet['name'];
 	} else {
-		$lat = $request->get_param('lat');
-		$lng = $request->get_param('lng');
 		if ($address === '') {
 			return raky_error('raky_bad_address', 'Вкажіть адресу доставки.');
 		}
-		if (! is_numeric($lat) || ! is_numeric($lng)) {
-			return raky_error('raky_bad_coords', 'Позначте адресу на карті.');
-		}
-		// Зону визначає сервер: координати та вартість доставки від клієнта не є довіреними.
-		$zone = raky_find_zone((float) $lat, (float) $lng);
-		if (! $zone) {
-			return raky_error('raky_out_of_zone', 'Ця адреса поза зоною доставки.', 422);
-		}
+		// Зону визначає сервер. Якщо адресу не знайдено точно, вартість уписує менеджер.
+		$zone = raky_zone_for_address($address);
 	}
 
 	$lines = raky_resolve_lines($request->get_param('items'));
@@ -167,9 +184,10 @@ function raky_rest_create_order(WP_REST_Request $request) {
 		}
 	}
 
-	if ($zone) {
+	if (! $pickup) {
+		// Рядок створюємо завжди, щоб менеджеру лишалося вписати суму.
 		$shipping = new WC_Order_Item_Shipping();
-		$shipping->set_method_title('Доставка: ' . $zone['name']);
+		$shipping->set_method_title($zone ? 'Доставка: ' . $zone['name'] : 'Доставка (вартість уточнює менеджер)');
 		$shipping->set_method_id('raky_zone');
 		$shipping->set_total($fee);
 		$order->add_item($shipping);
@@ -188,12 +206,11 @@ function raky_rest_create_order(WP_REST_Request $request) {
 	$order->set_payment_method($cash ? 'cod' : 'bacs');
 	$order->set_payment_method_title($cash ? 'Готівкою при отриманні' : 'Оплата за реквізитами');
 	$order->set_customer_note($comment);
+	$order->update_meta_data('_raky_ready_at', $ready);
 	$order->update_meta_data('_raky_delivery_type', $pickup ? 'pickup' : 'delivery');
-	$order->update_meta_data('_raky_outlet_id', $pickup ? $outlet['id'] : $zone['outlet_id']);
+	$order->update_meta_data('_raky_outlet_id', $pickup ? $outlet['id'] : ($zone['outlet_id'] ?? ''));
 	if ($zone) {
 		$order->update_meta_data('_raky_zone_id', $zone['id']);
-		$order->update_meta_data('_raky_lat', (float) $lat);
-		$order->update_meta_data('_raky_lng', (float) $lng);
 	}
 	$order->calculate_totals(false);
 	$order->save();
@@ -233,7 +250,7 @@ function raky_order_payload(WC_Order $order): array {
 		'id'           => $order->get_id(),
 		'key'          => $order->get_order_key(),
 		'status'       => $status,
-		'created_at'   => $order->get_date_created() ? $order->get_date_created()->date('c') : null,
+		'created_at'   => $order->get_date_created() ? gmdate('c', $order->get_date_created()->getTimestamp()) : null,
 		'items'        => $items,
 		'shipping'     => (float) $order->get_shipping_total(),
 		'discount'     => (float) $order->get_discount_total(),
@@ -242,6 +259,8 @@ function raky_order_payload(WC_Order $order): array {
 		'has_weighted' => $weighted,
 		'address'      => $order->get_billing_address_1(),
 		'payment_method' => $cash ? 'cash' : 'requisites',
+		'ready_at'     => (string) $order->get_meta('_raky_ready_at'),
+		'comment'      => $order->get_customer_note(),
 		// Реквізити видаємо лише після підтвердження менеджером.
 		'requisites'   => $awaiting_payment && ! $cash ? raky_get_settings()['requisites'] : null,
 	];

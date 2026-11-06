@@ -62,6 +62,7 @@ function useShopState() {
   const [orderDetails, setOrderDetails] = useState<Record<number, Order>>({});
   const [promo, setPromo] = useState<Promo | null>(null);
   const [promoError, setPromoError] = useState('');
+  const [ordersChecked, setOrdersChecked] = useState(false);
 
   const [restored, setRestored] = useState(false);
   // Останні відомі статуси: зміна, що сталася поки застосунок був закритий, теж дасть сповіщення.
@@ -223,6 +224,7 @@ function useShopState() {
     }
     AsyncStorage.setItem(STORAGE.statuses, JSON.stringify(statuses.current)).catch(() => undefined);
     setOrderDetails((current) => ({ ...current, ...Object.fromEntries(fresh.map((order) => [order.id, order])) }));
+    setOrdersChecked(true);
   }, [savedOrders, setNotes]);
 
   useEffect(() => {
@@ -327,7 +329,8 @@ function useShopState() {
     toggleFavorite,
     orders,
     refreshOrders,
-    ordersLoading: savedOrders.length > orders.length,
+    // Сервер може не знайти старі замовлення, тому чекаємо лише першу перевірку, а не всі записи.
+    ordersLoading: savedOrders.length > 0 && !ordersChecked,
     rememberOrder,
     repeatOrder,
     user,

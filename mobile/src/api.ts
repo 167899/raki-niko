@@ -71,9 +71,7 @@ export type Banner = {
 
 export type News = { id: number; title: string; text: string; date: string };
 
-export type DeliveryCheck =
-  | { in_zone: false }
-  | { in_zone: true; zone_id: string; zone_name: string; outlet_id: string; fee: number; min_order: number };
+export type DeliveryQuote = { found: false } | { found: true; fee: number; zone_name: string };
 
 export type OrderStatusCode =
   | 'awaiting_confirmation'
@@ -99,6 +97,8 @@ export type Order = {
   has_weighted: boolean;
   address: string;
   payment_method: PaymentMethod;
+  ready_at: string;
+  comment: string;
   requisites: string | null;
 };
 
@@ -112,9 +112,9 @@ export type NewOrder = {
   comment: string;
   delivery_type: 'delivery' | 'pickup';
   payment_method: PaymentMethod;
+  /** «YYYY-MM-DD HH:mm»; порожньо означає «якнайшвидше». */
+  ready_at: string;
   outlet_id?: string;
-  lat?: number;
-  lng?: number;
   items: OrderItem[];
   promo: string;
   expected_total: number;
@@ -146,7 +146,7 @@ const liveApi = {
   config: () => request<Config>('/config'),
   banners: () => request<Banner[]>('/banners'),
   news: () => request<News[]>('/news'),
-  checkDelivery: (lat: number, lng: number) => request<DeliveryCheck>(`/delivery-check&lat=${lat}&lng=${lng}`),
+  quoteDelivery: (address: string) => request<DeliveryQuote>(`/delivery-quote&address=${encodeURIComponent(address)}`),
   checkPromo: (code: string, items: OrderItem[], phone: string) =>
     post<{ code: string; discount: number }>('/promo-check', { code, items, phone }),
   createOrder: (order: NewOrder) => post<Order>('/orders', order),

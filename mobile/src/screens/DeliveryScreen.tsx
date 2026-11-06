@@ -8,6 +8,7 @@ import { colors } from '../theme';
 
 export function DeliveryScreen() {
   const { config } = useShop();
+  const fees = config?.zones.map((zone) => zone.fee) ?? [];
   return (
     <View style={shared.fill}>
       <Header title="Оплата і доставка" />
@@ -18,20 +19,11 @@ export function DeliveryScreen() {
             <View style={styles.map}>
               <ServiceMap config={config} />
             </View>
-            <View style={{ marginTop: 6 }}>
-              {config.zones.map((zone) => (
-                <InfoRow
-                  key={zone.id}
-                  left={
-                    <>
-                      <Text style={{ color: zone.color }}>● </Text>
-                      {zone.name}
-                    </>
-                  }
-                  right={`${money(zone.fee)}, замовлення від ${money(zone.min_order)}`}
-                />
-              ))}
-            </View>
+            {fees.length > 0 && (
+              <Paragraph style={{ marginTop: 6 }}>
+                Вартість від {money(Math.min(...fees))} до {money(Math.max(...fees))} залежно від району. Торкніться району на карті, щоб побачити ціну.
+              </Paragraph>
+            )}
             <Paragraph style={{ marginTop: 4 }}>Доставляє партнерська кур'єрська служба по Миколаєву.</Paragraph>
             <Heading>Самовивіз</Heading>
             {config.outlets.map((outlet) => (

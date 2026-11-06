@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Order, OrderStatusCode } from '../api';
 import { Button, Empty, Header, Loading, Paragraph, shared, Warn } from '../components/ui';
-import { dateTimeLabel, money, quantity } from '../format';
+import { dateTimeLabel, money, quantity, readyLabel } from '../format';
 import { useNav } from '../nav';
 import { useShop } from '../shop';
 import { colors } from '../theme';
@@ -32,6 +32,8 @@ function OrderCard({ order }: { order: Order }) {
   const { repeatOrder } = useShop();
   const [showRequisites, setShowRequisites] = useState(false);
   const status = STATUS[order.status.code];
+  const feePending = order.delivery_type === 'delivery' && order.shipping === 0;
+  const checks = [order.has_weighted && 'вагу', feePending && 'вартість доставки'].filter(Boolean).join(' й ');
   return (
     <View style={styles.card}>
       <View style={styles.head}>
@@ -49,8 +51,10 @@ function OrderCard({ order }: { order: Order }) {
       )}
       <Paragraph style={{ marginTop: 4 }}>{orderText(order)}</Paragraph>
       <Paragraph>Оплата: {order.payment_method === 'cash' ? 'готівкою при отриманні' : 'за реквізитами'}</Paragraph>
-      {order.status.code === 'awaiting_confirmation' && order.has_weighted && (
-        <Warn text="Сума попередня: менеджер уточнить вагу перед оплатою." style={{ marginTop: 7 }} />
+      {!!order.ready_at && <Paragraph>Готуємо на: {readyLabel(order.ready_at)}</Paragraph>}
+      {!!order.comment && <Paragraph>Коментар: {order.comment}</Paragraph>}
+      {order.status.code === 'awaiting_confirmation' && (order.has_weighted || feePending) && (
+        <Warn text={`Сума попередня: менеджер уточнить ${checks} перед оплатою.`} style={{ marginTop: 7 }} />
       )}
       {!!order.requisites && (
         <>

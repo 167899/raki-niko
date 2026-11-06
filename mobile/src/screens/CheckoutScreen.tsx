@@ -1,14 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { api, ApiError, DeliveryCheck, PaymentMethod } from '../api';
-import { ServiceMap } from '../components/ServiceMap';
+import { api, ApiError, DeliveryQuote, PaymentMethod } from '../api';
+import { ReadyPicker } from '../components/ReadyPicker';
 import { Button, ErrorText, Field, FieldLabel, Header, Loading, Paragraph, RowButton, shared } from '../components/ui';
-import { fullPhone, money, validEmail, validPhone } from '../format';
+import { fullPhone, money, readyLabel, validEmail, validPhone } from '../format';
 import { useNav } from '../nav';
 import { useShop } from '../shop';
 import { colors } from '../theme';
 
-type Errors = { name?: string; phone?: string; email?: string; address?: string; map?: string };
+const QUOTE_DELAY_MS = 900;
+const QUOTE_MIN_LENGTH = 4;
+
+type Errors = { name?: string; phone?: string; email?: string; address?: string };
 
 function Toggles<T extends string>({
   value,
@@ -47,53 +50,52 @@ export function CheckoutScreen() {
   const [address, setAddress] = useState('');
   const [pickup, setPickup] = useState(false);
   const [payment, setPayment] = useState<PaymentMethod>('requisites');
+  // Порожнє значення означає «якнайшвидше».
+  const [ready, setReady] = useState('');
+  const [picking, setPicking] = useState(false);
+  const [comment, setComment] = useState('');
   const [outletId, setOutletId] = useState<string | null>(null);
-  const [point, setPoint] = useState<{ lat: number; lng: number } | null>(null);
-  const [delivery, setDelivery] = useState<DeliveryCheck | null>(null);
   const [errors, setErrors] = useState<Errors>({});
   const [failure, setFailure] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const latestPick = useRef(0);
+  const [quote, setQuote] = useState<DeliveryQuote | null>(null);
+  const [quoting, setQuoting] = useState(false);
+  const latestQuote = useRef(0);
 
   useEffect(() => {
     if (!outletId && config?.outlets[0]) setOutletId(config.outlets[0].id);
   }, [config, outletId]);
 
-  const pick = useCallback(async (lat: number, lng: number) => {
-    const pickId = ++latestPick.current;
-    setPoint({ lat, lng });
-    setDelivery(null);
-    setErrors((current) => ({ ...current, map: undefined }));
-    try {
-      const result = await api.checkDelivery(lat, lng);
-      // Клієнт міг переставити мітку, поки йшов запит: застарілу відповідь ігноруємо.
-      if (pickId === latestPick.current) setDelivery(result);
-    } catch (error) {
-      if (pickId === latestPick.current) {
-        setErrors((current) => ({ ...current, map: error instanceof ApiError ? error.message : 'Не вдалося перевірити адресу.' }));
-      }
-    }
-  }, []);
+  // Вартість рахує сервер за адресою. Запит іде після паузи в наборі, застарілі відповіді відкидаємо.
+  useEffect(() => {
+    const quoteId = ++latestQuote.current;
+    const text = address.trim();
+    setQuote(null);
+    setQuoting(false);
+    if (pickup || text.length < QUOTE_MIN_LENGTH) return;
+    setQuoting(true);
+    const timer = setTimeout(async () => {
+      const result = await api.quoteDelivery(text).catch((): DeliveryQuote => ({ found: false }));
+      if (quoteId !== latestQuote.current) return;
+      setQuote(result);
+      setQuoting(false);
+    }, QUOTE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [address, pickup]);
 
   if (!config) return <Loading />;
 
-  const zone = !pickup && delivery?.in_zone ? delivery : null;
-  const fee = zone?.fee ?? 0;
   const discount = promo?.discount ?? 0;
+  const fee = !pickup && quote?.found ? quote.fee : 0;
   const total = subtotal - discount + fee;
+  const feeKnown = pickup || !!quote?.found;
 
   const validate = (): Errors => {
     const found: Errors = {};
     if (!name.trim()) found.name = "Вкажіть ім'я";
     if (!validPhone(phone)) found.phone = 'Вкажіть номер із 10 цифр';
     if (!validEmail(email)) found.email = 'Перевірте email';
-    if (!pickup) {
-      if (!address.trim()) found.address = 'Вкажіть адресу доставки';
-      if (!point) found.map = 'Позначте адресу на карті';
-      else if (delivery && !delivery.in_zone) found.map = 'Сюди ми поки не доставляємо. Оберіть точку в кольоровій зоні';
-      else if (zone && subtotal < zone.min_order) found.map = `Мінімальне замовлення для цієї зони: ${money(zone.min_order)}`;
-      else if (!zone) found.map = 'Перевіряємо адресу, зачекайте';
-    }
+    if (!pickup && !address.trim()) found.address = 'Вкажіть адресу доставки';
     return found;
   };
 
@@ -109,18 +111,22 @@ export function CheckoutScreen() {
     setSubmitting(true);
     try {
       const cleanPhone = phone.replace(/[\s()-]/g, '');
+      // Сума має збігтися із серверною, тому перед надсиланням беремо свіжу вартість доставки.
+      const latest = pickup ? null : await api.quoteDelivery(address.trim()).catch(() => null);
+      const finalFee = latest?.found ? latest.fee : 0;
       const order = await api.createOrder({
         name: name.trim(),
         phone: cleanPhone,
         email: email.trim(),
         address: address.trim(),
-        comment: '',
+        comment: comment.trim(),
         delivery_type: pickup ? 'pickup' : 'delivery',
         payment_method: payment,
-        ...(pickup ? { outlet_id: outletId ?? '' } : point!),
+        ready_at: ready,
+        ...(pickup ? { outlet_id: outletId ?? '' } : {}),
         items: orderItems,
         promo: promo?.code ?? '',
-        expected_total: Math.round(total * 100) / 100,
+        expected_total: Math.round((subtotal - discount + finalFee) * 100) / 100,
       });
       shop.rememberOrder(order, cart);
       if (!user) shop.signIn({ name: name.trim(), phone: cleanPhone, email: email.trim() });
@@ -141,99 +147,132 @@ export function CheckoutScreen() {
   return (
     <View style={shared.fill}>
       <Header title="Оформлення" />
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <Field
-          label="Ім'я *"
-          value={name}
-          autoComplete="name"
-          error={errors.name}
-          onChangeText={(text) => {
-            setName(text);
-            clearError('name');
-          }}
-        />
-        <Field
-          label="Телефон *"
-          value={phone}
-          placeholder="050 123 45 67"
-          keyboardType="phone-pad"
-          autoComplete="tel"
-          error={errors.phone}
-          onChangeText={(text) => {
-            setPhone(text);
-            clearError('phone');
-          }}
-        />
-        <Field
-          label="Email (за бажанням)"
-          value={email}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoComplete="email"
-          error={errors.email}
-          onChangeText={(text) => {
-            setEmail(text);
-            clearError('email');
-          }}
-        />
-        <FieldLabel>Як отримати</FieldLabel>
-        <Toggles
-          value={pickup ? 'pickup' : 'delivery'}
-          options={[
-            { id: 'delivery', label: 'Доставка' },
-            { id: 'pickup', label: 'Самовивіз' },
-          ]}
-          onChange={(id) => setPickup(id === 'pickup')}
-        />
-        {pickup ? (
-          <>
-            <FieldLabel>Точка самовивозу</FieldLabel>
-            {config.outlets.map((outlet, index) => (
-              <RowButton
-                key={outlet.id}
-                icon="map-pin"
-                label={outlet.name}
-                on={outlet.id === outletId}
-                style={index === 0 ? { marginTop: 0 } : null}
-                onPress={() => setOutletId(outlet.id)}
+      <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <View style={styles.sectionFirst}>
+          <Field
+            labelStyle={styles.label}
+            label="Ім'я *"
+            value={name}
+            autoComplete="name"
+            error={errors.name}
+            onChangeText={(text) => {
+              setName(text);
+              clearError('name');
+            }}
+          />
+          <Field
+            labelStyle={styles.label}
+            label="Телефон *"
+            value={phone}
+            placeholder="050 123 45 67"
+            keyboardType="phone-pad"
+            autoComplete="tel"
+            error={errors.phone}
+            onChangeText={(text) => {
+              setPhone(text);
+              clearError('phone');
+            }}
+          />
+          <Field
+            labelStyle={styles.label}
+            label="Email (за бажанням)"
+            value={email}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            error={errors.email}
+            onChangeText={(text) => {
+              setEmail(text);
+              clearError('email');
+            }}
+          />
+        </View>
+        <View style={styles.section}>
+          <FieldLabel style={styles.label}>Як отримати</FieldLabel>
+          <Toggles
+            value={pickup ? 'pickup' : 'delivery'}
+            options={[
+              { id: 'delivery', label: 'Доставка' },
+              { id: 'pickup', label: 'Самовивіз' },
+            ]}
+            onChange={(id) => setPickup(id === 'pickup')}
+          />
+          {pickup ? (
+            <>
+              <FieldLabel style={styles.label}>Точка самовивозу</FieldLabel>
+              {config.outlets.map((outlet, index) => (
+                <RowButton
+                  key={outlet.id}
+                  icon="map-pin"
+                  label={outlet.name}
+                  on={outlet.id === outletId}
+                  style={index === 0 ? { marginTop: 0 } : null}
+                  onPress={() => setOutletId(outlet.id)}
+                />
+              ))}
+            </>
+          ) : (
+            <>
+              <Field
+                labelStyle={styles.label}
+                label="Адреса доставки *"
+                value={address}
+                placeholder="Вулиця, будинок, квартира"
+                error={errors.address}
+                onChangeText={(text) => {
+                  setAddress(text);
+                  clearError('address');
+                }}
               />
-            ))}
-          </>
-        ) : (
-          <>
-            <Field
-              label="Адреса доставки *"
-              value={address}
-              placeholder="Вулиця, будинок, квартира"
-              error={errors.address}
-              onChangeText={(text) => {
-                setAddress(text);
-                clearError('address');
-              }}
-            />
-            <FieldLabel>Позначте адресу на карті</FieldLabel>
-            <View style={styles.map}>
-              <ServiceMap config={config} onPick={pick} initial={point} />
-            </View>
-            {!!errors.map && <ErrorText>{errors.map}</ErrorText>}
-            {!errors.map && zone && <ErrorText color={colors.green}>Зона «{zone.zone_name}», доставка {money(zone.fee)}</ErrorText>}
-            {!errors.map && delivery && !delivery.in_zone && <ErrorText>Сюди ми поки не доставляємо. Оберіть точку в кольоровій зоні</ErrorText>}
-          </>
-        )}
-        <FieldLabel>Спосіб оплати</FieldLabel>
-        <Toggles
-          value={payment}
-          options={[
-            { id: 'requisites', label: 'На реквізити' },
-            { id: 'cash', label: 'Готівкою' },
-          ]}
-          onChange={setPayment}
-        />
-        <Paragraph style={{ marginTop: 6 }}>
-          {payment === 'cash'
-            ? 'Оплата при отриманні замовлення.'
-            : "Реквізити з'являться в замовленні після підтвердження менеджером."}
-        </Paragraph>
+              {!quoting && quote?.found === false && (
+                <Paragraph style={{ marginTop: 4 }}>Не вдалося точно знайти адресу. Вартість доставки уточнить менеджер.</Paragraph>
+              )}
+            </>
+          )}
+        </View>
+        <View style={styles.section}>
+          <FieldLabel style={styles.label}>Готуємо на</FieldLabel>
+          <Toggles
+            value={ready ? 'scheduled' : 'asap'}
+            options={[
+              { id: 'asap', label: 'Якнайшвидше' },
+              { id: 'scheduled', label: 'Дата й час' },
+            ]}
+            onChange={(id) => {
+              if (id === 'asap') setReady('');
+              else setPicking(true);
+            }}
+          />
+          {!!ready && <RowButton icon="calendar-event" label={readyLabel(ready)} onPress={() => setPicking(true)} />}
+        </View>
+        <View style={styles.section}>
+          <Field
+            labelStyle={styles.label}
+            label="Коментар"
+            value={comment}
+            multiline
+            maxLength={500}
+            placeholder="Побажання до замовлення"
+            style={styles.comment}
+            onChangeText={setComment}
+          />
+        </View>
+        <View style={styles.section}>
+          <FieldLabel style={styles.label}>Спосіб оплати</FieldLabel>
+          <Toggles
+            value={payment}
+            options={[
+              { id: 'requisites', label: 'На реквізити' },
+              { id: 'cash', label: 'Готівкою' },
+            ]}
+            onChange={setPayment}
+          />
+          <Paragraph style={{ marginTop: 6 }}>
+            {payment === 'cash'
+              ? 'Оплата при отриманні замовлення.'
+              : "Реквізити з'являться в замовленні після підтвердження менеджером."}
+          </Paragraph>
+        </View>
       </ScrollView>
       <View style={shared.foot}>
         {discount > 0 && (
@@ -245,28 +284,41 @@ export function CheckoutScreen() {
         {!pickup && (
           <View style={[shared.sum, { marginBottom: 3 }]}>
             <Text style={styles.small}>Доставка</Text>
-            <Text style={styles.small}>{zone ? money(fee) : 'після вибору адреси'}</Text>
+            <Text style={styles.small}>{quoting ? 'розраховуємо…' : feeKnown ? money(fee) : 'уточнить менеджер'}</Text>
           </View>
         )}
         <View style={[shared.sum, { marginBottom: 8 }]}>
-          <Text style={styles.totalLabel}>Разом</Text>
+          <Text style={styles.totalLabel}>{feeKnown ? 'Разом' : 'Разом без доставки'}</Text>
           <Text style={styles.total}>{money(total)}</Text>
         </View>
         {!!failure && <ErrorText>{failure}</ErrorText>}
         <Button title="Надіслати замовлення" loading={submitting} style={failure ? { marginTop: 8 } : null} onPress={submit} />
       </View>
+      {picking && (
+        <ReadyPicker
+          value={ready}
+          onCancel={() => setPicking(false)}
+          onDone={(value) => {
+            setReady(value);
+            setPicking(false);
+          }}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  body: { paddingTop: 4, paddingHorizontal: 14, paddingBottom: 12 },
+  // Блоки розділені широкою смугою, щоб особисті дані, адреса, час і оплата не зливалися.
+  sectionFirst: { paddingHorizontal: 14, paddingTop: 6, paddingBottom: 16 },
+  section: { paddingHorizontal: 14, paddingTop: 6, paddingBottom: 16, borderTopWidth: 8, borderTopColor: '#F2F2F2' },
+  label: { fontSize: 13 },
   toggles: { flexDirection: 'row', gap: 6 },
   toggle: { flex: 1, height: 38, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   toggleOn: { backgroundColor: colors.red, borderColor: colors.red },
   toggleText: { fontSize: 13, color: colors.text },
   toggleTextOn: { color: colors.white },
-  map: { height: 190, borderRadius: 10, overflow: 'hidden', backgroundColor: '#F3F3F3' },
+  comment: { height: 76 },
   small: { fontSize: 13, color: colors.text },
   totalLabel: { fontSize: 14, fontWeight: '500', color: colors.ink },
   total: { fontSize: 17, fontWeight: '500', color: colors.ink },
