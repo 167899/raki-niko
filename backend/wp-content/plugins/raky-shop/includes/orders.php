@@ -224,6 +224,9 @@ function raky_rest_create_order(WP_REST_Request $request) {
 		$order->save();
 	}
 
+	// Сповіщення менеджерам, наприклад Telegram (includes/telegram.php).
+	do_action('raky_order_created', $order);
+
 	return new WP_REST_Response(raky_order_payload($order), 201);
 }
 

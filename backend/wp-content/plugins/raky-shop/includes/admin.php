@@ -285,6 +285,12 @@ function raky_render_settings_page(): void {
 			}
 		}
 	}
+	$tg_chats = null;
+	$notice   = null;
+	if (isset($_POST['raky_tg_action'])) {
+		check_admin_referer('raky_telegram');
+		[$error, $notice, $tg_chats] = raky_tg_handle_form(sanitize_key(wp_unslash((string) $_POST['raky_tg_action'])));
+	}
 	$settings = raky_get_settings();
 	$json     = JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT;
 	?>
@@ -293,6 +299,8 @@ function raky_render_settings_page(): void {
 		<?php // Зупинку входу в Skyservice показує блок Skyservice, тут її не дублюємо. ?>
 		<?php if ($error && $error !== raky_sky_settings()['stopped']) : ?><div class="notice notice-error"><p><?php echo esc_html($error); ?></p></div><?php endif; ?>
 		<?php if ($saved) : ?><div class="notice notice-success"><p>Збережено.</p></div><?php endif; ?>
+		<?php if ($notice) : ?><div class="notice notice-success"><p><?php echo esc_html($notice); ?></p></div><?php endif; ?>
+		<?php raky_render_tg_section($tg_chats); ?>
 		<?php raky_render_sky_section($report); ?>
 		<form method="post">
 			<?php wp_nonce_field('raky_settings'); ?>

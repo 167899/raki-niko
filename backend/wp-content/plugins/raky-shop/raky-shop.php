@@ -26,11 +26,13 @@ require_once __DIR__ . '/includes/orders.php';
 require_once __DIR__ . '/includes/promotions.php';
 require_once __DIR__ . '/includes/sync.php';
 require_once __DIR__ . '/includes/skyservice.php';
+require_once __DIR__ . '/includes/telegram.php';
 require_once __DIR__ . '/includes/admin.php';
 
 register_activation_hook(__FILE__, 'raky_name_default_category');
 register_deactivation_hook(__FILE__, static function () {
 	wp_clear_scheduled_hook(RAKY_SKY_CRON);
+	wp_clear_scheduled_hook(RAKY_TG_CRON);
 });
 
 add_action('rest_api_init', static function () {
