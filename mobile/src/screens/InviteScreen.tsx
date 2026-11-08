@@ -26,6 +26,6 @@ export function InviteScreen() {
 
 const styles = StyleSheet.create({
   card: { backgroundColor: colors.red, borderRadius: 12, padding: 14 },
-  title: { fontSize: 17, lineHeight: 21, fontWeight: '500', color: colors.white },
-  text: { fontSize: 12, lineHeight: 17, color: colors.white, marginTop: 3 },
+  title: { fontSize: 19, lineHeight: 23, fontWeight: '500', color: colors.white },
+  text: { fontSize: 14, lineHeight: 19, color: colors.white, marginTop: 3 },
 });

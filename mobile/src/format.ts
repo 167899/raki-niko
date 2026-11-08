@@ -6,11 +6,27 @@ function number(value: number): string {
 
 export const money = (value: number) => `${number(value)} ₴`;
 
-export const unitName = (unit: 'kg' | 'pcs') => (unit === 'kg' ? 'кг' : 'шт');
+/** Одиниці, що приходять із каталогу. Кількість у кошику рахується в них. */
+export type Unit = 'g' | 'kg' | '100g' | 'l' | 'ml' | 'por' | 'pcs';
 
-export const quantity = (value: number, unit: 'kg' | 'pcs') => `${number(value)} ${unitName(unit)}`;
+const UNIT_NAMES: Record<Unit, string> = { g: 'г', kg: 'кг', '100g': '100 г', l: 'л', ml: 'мл', por: 'порція', pcs: 'шт' };
 
-export const unitPrice = (price: number, unit: 'kg' | 'pcs') => `${number(price)} ₴ / ${unitName(unit)}`;
+export const unitName = (unit: Unit) => UNIT_NAMES[unit] ?? 'шт';
+
+/** Вагові одиниці: точну вагу й суму менеджер підтверджує перед оплатою. */
+export const isWeighed = (unit: Unit) => unit === 'g' || unit === 'kg' || unit === '100g';
+
+/** Скільки кілограмів в одиниці, для підказки «приблизно N шт»; 0 — не вагова. */
+export const kgPerUnit = (unit: Unit) => ({ g: 0.001, kg: 1, '100g': 0.1 } as Partial<Record<Unit, number>>)[unit] ?? 0;
+
+/** «300 г» для трьох по 100 г, «2 порц.» для порцій. */
+export function quantity(value: number, unit: Unit): string {
+  if (unit === '100g') return `${number(value * 100)} г`;
+  if (unit === 'por') return `${number(value)} порц.`;
+  return `${number(value)} ${unitName(unit)}`;
+}
+
+export const unitPrice = (price: number, unit: Unit) => `${number(price)} ₴ / ${unitName(unit)}`;
 
 export const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 

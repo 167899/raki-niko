@@ -54,11 +54,11 @@ export function PromosScreen() {
 const styles = StyleSheet.create({
   card: { borderWidth: 1, borderColor: colors.line, borderRadius: 12, overflow: 'hidden', marginBottom: 8 },
   head: { paddingVertical: 10, paddingHorizontal: 12 },
-  label: { fontSize: 12, color: colors.white },
-  title: { fontSize: 15, lineHeight: 19, fontWeight: '500', color: colors.white },
+  label: { fontSize: 14, color: colors.white },
+  title: { fontSize: 17, lineHeight: 21, fontWeight: '500', color: colors.white },
   foot: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 10 },
-  text: { flex: 1, fontSize: 12, lineHeight: 17, color: colors.text },
+  text: { flex: 1, fontSize: 14, lineHeight: 19, color: colors.text },
   code: { color: colors.ink, fontWeight: '500' },
   copy: { height: 32, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
-  copyText: { fontSize: 12, color: colors.text },
+  copyText: { fontSize: 14, color: colors.text },
 });

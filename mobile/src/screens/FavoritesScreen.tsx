@@ -42,6 +42,6 @@ export function FavoritesScreen() {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 9, borderWidth: 1, borderColor: colors.line, borderRadius: 12, padding: 9, marginBottom: 8 },
   thumb: { width: 58, height: 58, borderRadius: 9 },
-  name: { flex: 1, fontSize: 13, lineHeight: 17, fontWeight: '500', color: colors.ink },
-  price: { fontSize: 13, fontWeight: '500', color: colors.ink, marginTop: 2, marginBottom: 6 },
+  name: { flex: 1, fontSize: 15, lineHeight: 19, fontWeight: '500', color: colors.ink },
+  price: { fontSize: 15, fontWeight: '500', color: colors.ink, marginTop: 2, marginBottom: 6 },
 });

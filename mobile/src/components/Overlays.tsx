@@ -101,10 +101,10 @@ const styles = StyleSheet.create({
   layer: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 10, backgroundColor: colors.overlay },
   dropdown: { position: 'absolute', top: 48, right: 8, width: 260, maxHeight: '90%', overflow: 'hidden', borderRadius: 12, backgroundColor: colors.white },
   who: { flexDirection: 'row', gap: 9, alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, backgroundColor: colors.soft },
-  whoName: { fontSize: 14, fontWeight: '500', color: colors.softInk },
-  whoHint: { fontSize: 12, color: colors.softInk },
+  whoName: { fontSize: 16, fontWeight: '500', color: colors.softInk },
+  whoHint: { fontSize: 14, color: colors.softInk },
   item: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7, paddingHorizontal: 14 },
-  itemText: { fontSize: 13, color: colors.text },
+  itemText: { fontSize: 15, color: colors.text },
   socials: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -114,5 +114,5 @@ const styles = StyleSheet.create({
     borderTopColor: colors.line,
   },
   sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.white, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 14 },
-  sheetTitle: { fontSize: 15, fontWeight: '500', color: colors.ink },
+  sheetTitle: { fontSize: 17, fontWeight: '500', color: colors.ink },
 });

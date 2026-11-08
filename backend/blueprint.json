@@ -20,6 +20,14 @@
       }
     },
     {
+      "step": "unzip",
+      "zipFile": {
+        "resource": "vfs",
+        "path": "/wordpress/wp-content/raky-cache/woocommerce-uk.zip"
+      },
+      "extractToPath": "/wordpress/wp-content/languages/plugins"
+    },
+    {
       "step": "activatePlugin",
       "pluginPath": "raky-shop/raky-shop.php"
     },

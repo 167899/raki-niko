@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   center: { textAlign: 'center', marginBottom: 4 },
   or: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12, marginBottom: 4 },
   orLine: { flex: 1, height: 1, backgroundColor: colors.line },
-  orText: { fontSize: 12, color: colors.text },
+  orText: { fontSize: 14, color: colors.text },
   social: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -143,10 +143,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   socialDark: { backgroundColor: colors.ink, borderColor: colors.ink },
-  socialText: { fontSize: 14, color: colors.ink },
+  socialText: { fontSize: 16, color: colors.ink },
   switchRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 14 },
-  switchText: { fontSize: 13, color: colors.text },
-  link: { fontSize: 13, color: colors.red },
-  fine: { fontSize: 12, lineHeight: 17, color: colors.text, textAlign: 'center', marginTop: 12 },
+  switchText: { fontSize: 15, color: colors.text },
+  link: { fontSize: 15, color: colors.red },
+  fine: { fontSize: 14, lineHeight: 19, color: colors.text, textAlign: 'center', marginTop: 12 },
   fineLink: { color: colors.red },
 });

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BottomBar, Button, Empty, ErrorText, Header, Icon, Input, Paragraph, ProductPicture, shared, Warn } from '../components/ui';
-import { money, quantity } from '../format';
+import { isWeighed, money, quantity } from '../format';
 import { useNav } from '../nav';
 import { ResolvedLine, useShop } from '../shop';
 import { colors } from '../theme';
@@ -81,7 +81,7 @@ export function CartScreen() {
         {lines.map((line) => (
           <CartRow key={`${line.productId}:${line.flavor}`} line={line} />
         ))}
-        {lines.some((line) => line.product.unit === 'kg') && <Warn text="Точну вагу й суму менеджер підтвердить перед оплатою." />}
+        {lines.some((line) => isWeighed(line.product.unit)) && <Warn text="Точну вагу й суму менеджер підтвердить перед оплатою." />}
       </ScrollView>
       <View style={styles.summary}>
         <Text style={styles.promoLabel}>Промокод</Text>
@@ -129,19 +129,19 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 9, borderWidth: 1, borderColor: colors.line, borderRadius: 12, padding: 9, marginBottom: 8 },
   thumb: { width: 58, height: 58, borderRadius: 9 },
   nameRow: { flexDirection: 'row', gap: 4, alignItems: 'flex-start' },
-  name: { flex: 1, fontSize: 13, lineHeight: 17, fontWeight: '500', color: colors.ink },
+  name: { flex: 1, fontSize: 15, lineHeight: 19, fontWeight: '500', color: colors.ink },
   remove: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
   amountRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   step: { width: 30, height: 30, borderWidth: 1, borderColor: colors.border, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  amount: { minWidth: 44, textAlign: 'center', fontSize: 13, color: colors.ink },
-  lineTotal: { flex: 1, textAlign: 'right', fontSize: 14, fontWeight: '500', color: colors.ink },
+  amount: { minWidth: 44, textAlign: 'center', fontSize: 15, color: colors.ink },
+  lineTotal: { flex: 1, textAlign: 'right', fontSize: 16, fontWeight: '500', color: colors.ink },
   summary: { paddingTop: 8, paddingHorizontal: 14, paddingBottom: 12, borderTopWidth: 1, borderTopColor: colors.line },
-  promoLabel: { fontSize: 12, color: colors.text, marginBottom: 4 },
+  promoLabel: { fontSize: 14, color: colors.text, marginBottom: 4 },
   promoRow: { flexDirection: 'row', gap: 6 },
   apply: { height: 38, borderRadius: 10, backgroundColor: colors.red, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
-  applyText: { color: colors.white, fontSize: 13, fontWeight: '500' },
-  small: { fontSize: 13, color: colors.text },
-  totalLabel: { fontSize: 14, fontWeight: '500', color: colors.ink },
-  total: { fontSize: 17, fontWeight: '500', color: colors.ink },
+  applyText: { color: colors.white, fontSize: 15, fontWeight: '500' },
+  small: { fontSize: 15, color: colors.text },
+  totalLabel: { fontSize: 16, fontWeight: '500', color: colors.ink },
+  total: { fontSize: 19, fontWeight: '500', color: colors.ink },
 });
 

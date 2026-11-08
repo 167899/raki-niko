@@ -234,7 +234,7 @@ function raky_order_payload(WC_Order $order): array {
 	foreach ($order->get_items() as $item) {
 		$product = $item->get_product();
 		$unit    = $product ? raky_product_unit($product) : 'pcs';
-		$weighted = $weighted || $unit === 'kg';
+		$weighted = $weighted || raky_unit_weighed($unit);
 		$items[] = [
 			'name'     => $item->get_name(),
 			'quantity' => (float) $item->get_quantity(),

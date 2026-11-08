@@ -6,10 +6,14 @@ if [ ! -f cache/woocommerce.zip ]; then
   mkdir -p cache
   curl -fsSL -o cache/woocommerce.zip https://downloads.wordpress.org/plugin/woocommerce.latest-stable.zip || exit 1
 fi
+# Український переклад WooCommerce: Playground не завантажує його сам. Версія перекладу має збігатися з архівом.
+if [ ! -f cache/woocommerce-uk.zip ]; then
+  WC_VERSION=$(unzip -p cache/woocommerce.zip woocommerce/woocommerce.php | sed -n 's/^ \* Version: //p' | tr -d '\r')
+  curl -fsSL -o cache/woocommerce-uk.zip "https://downloads.wordpress.org/translation/plugin/woocommerce/$WC_VERSION/uk.zip" || exit 1
+fi
 exec npx wp-playground-cli server \
   --port 9400 --login --blueprint ./blueprint.json \
   --mount "$PWD/wp-content/plugins/raky-shop:/wordpress/wp-content/plugins/raky-shop" \
   --mount "$PWD/cache:/wordpress/wp-content/raky-cache" \
-  --define RAKY_SYNC_SECRET "${RAKY_SYNC_SECRET:-local-dev-secret}" \
   --define RAKY_DEMO_MANAGER_PASSWORD "${RAKY_DEMO_MANAGER_PASSWORD:-local-manager-test}" \
   --php-ini memory_limit 512M

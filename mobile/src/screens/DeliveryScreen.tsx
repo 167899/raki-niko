@@ -52,6 +52,6 @@ const styles = StyleSheet.create({
   map: { height: 190, borderRadius: 10, overflow: 'hidden', backgroundColor: '#F3F3F3' },
   step: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', paddingVertical: 3 },
   number: { width: 20, height: 20, borderRadius: 10, backgroundColor: colors.soft, alignItems: 'center', justifyContent: 'center' },
-  numberText: { fontSize: 11, color: colors.softInk },
-  stepText: { flex: 1, fontSize: 12, lineHeight: 17, color: colors.text },
+  numberText: { fontSize: 13, color: colors.softInk },
+  stepText: { flex: 1, fontSize: 14, lineHeight: 19, color: colors.text },
 });

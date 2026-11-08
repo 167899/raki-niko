@@ -109,5 +109,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
   },
   toastHigh: { bottom: 128 },
-  toastText: { color: colors.white, fontSize: 12, lineHeight: 17 },
+  toastText: { color: colors.white, fontSize: 14, lineHeight: 19 },
 });

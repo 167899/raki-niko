@@ -19,9 +19,20 @@ function raky_product_fields(): array {
 add_action('woocommerce_product_options_general_product_data', static function () {
 	echo '<div class="options_group">';
 	woocommerce_wp_select([
-		'id'      => RAKY_META_UNIT,
-		'label'   => 'Одиниця в застосунку',
-		'options' => ['pcs' => 'шт', 'kg' => 'кг'],
+		'id'          => RAKY_META_UNIT,
+		'label'       => 'Одиниця застосунку',
+		'options'     => raky_units(),
+		'value'       => ($product = wc_get_product(get_the_ID())) ? raky_product_unit($product) : 'pcs',
+		'description' => 'За цю одиницю клієнт бачить ціну, у ній рахується кількість. Для «100 г» крок 1 означає 100 г.',
+		'desc_tip'    => true,
+	]);
+	raky_render_sky_field();
+	woocommerce_wp_text_input([
+		'id'          => RAKY_META_SKY_FACTOR,
+		'label'       => 'Множник Skyservice',
+		'placeholder' => '1',
+		'description' => 'Ціна з каси множиться на це число. Наприклад 0.1, якщо в застосунку ціна за 100 г, а в касі за 1 кг.',
+		'desc_tip'    => true,
 	]);
 	foreach (raky_product_fields() as [$key, $label, $hint]) {
 		woocommerce_wp_text_input(['id' => $key, 'label' => $label, 'description' => $hint, 'desc_tip' => true]);
@@ -29,6 +40,88 @@ add_action('woocommerce_product_options_general_product_data', static function (
 	raky_render_flavor_rows();
 	echo '</div>';
 });
+
+/**
+ * Позиції Skyservice товару: основна дає ціну й наявність, додаткові (рецепт) лише додають ціну.
+ * Без підключення або при помилці каси поля стають прихованими й зберігають поточну прив'язку.
+ */
+function raky_render_sky_field(): void {
+	$product_id = (int) get_the_ID();
+	$main       = raky_sky_ids(get_post_meta($product_id, RAKY_META_SKY_ID, true))[0] ?? '';
+	$extra      = raky_sky_ids(get_post_meta($product_id, RAKY_META_SKY_EXTRA, true));
+	$label      = '<label for="raky_sky_id">Товар у Skyservice</label>';
+	$hidden     = sprintf(
+		'<input type="hidden" name="raky_sky_id" value="%s"><input type="hidden" name="raky_sky_extra" value="%s">',
+		esc_attr($main),
+		esc_attr(implode(',', $extra))
+	);
+	$products = raky_sky_ready() ? raky_sky_products() : null;
+	if (! is_array($products)) {
+		$message = $products === null
+			? sprintf('Підключіть Skyservice у <a href="%s">WooCommerce → Застосунок</a>, щоб брати ціну з каси.', esc_url(admin_url('admin.php?page=raky-settings')))
+			: esc_html($products->get_error_message() . ' Прив\'язку не змінено.');
+		printf('<p class="form-field">%s<span>%s</span>%s</p>', $label, $message, $hidden); // phpcs:ignore WordPress.Security.EscapeOutput
+		return;
+	}
+	echo '<p class="form-field">' . $label . '<select id="raky_sky_id" name="raky_sky_id" class="wc-enhanced-select" style="width:50%"><option value="">Не брати ціну з каси</option>'; // phpcs:ignore WordPress.Security.EscapeOutput
+	raky_render_sky_options($products, $main === '' ? [] : [$main]);
+	echo '</select>' . wc_help_tip('Ціна й наявність оновлюються з каси кожні 10 хвилин, тож «Звичайну ціну» вручну не змінюйте. Якщо позицію вимкнено в касі, товару в застосунку немає в наявності.') . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput
+
+	// Порожнє значення надсилається завжди: так зняття всіх додаткових позицій теж зберігається.
+	echo '<p class="form-field"><label for="raky_sky_extra">Додати до ціни</label><input type="hidden" name="raky_sky_extra[]" value="">'
+		. '<select id="raky_sky_extra" name="raky_sky_extra[]" multiple class="wc-enhanced-select" style="width:50%" data-placeholder="Наприклад, рецепт">'; // phpcs:ignore WordPress.Security.EscapeOutput
+	raky_render_sky_options($products, $extra);
+	echo '</select>' . wc_help_tip('Ціни цих позицій додаються до ціни товару, наприклад раки + рецепт. Їхня наявність у касі не враховується.') . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput
+
+	$ids = raky_sky_product_ids($product_id);
+	if ($ids) {
+		raky_render_sky_price($ids, raky_sky_factor(get_post_meta($product_id, RAKY_META_SKY_FACTOR, true)), $products);
+	}
+}
+
+/** Позиції каси за категоріями; вибрані, яких у касі вже немає, показуються першими. */
+function raky_render_sky_options(array $products, array $selected): void {
+	foreach ($selected as $id) {
+		if (! isset($products[$id])) {
+			printf('<option value="%s" selected>Товар №%s (немає в касі)</option>', esc_attr($id), esc_html($id));
+		}
+	}
+	$groups = [];
+	foreach ($products as $product) {
+		$groups[$product['category'] ?: 'Без категорії'][] = $product;
+	}
+	ksort($groups);
+	foreach ($groups as $category => $rows) {
+		printf('<optgroup label="%s">', esc_attr($category));
+		foreach ($rows as $row) {
+			printf(
+				'<option value="%s"%s>%s — %s ₴%s%s</option>',
+				esc_attr($row['id']),
+				selected(in_array($row['id'], $selected, true), true, false),
+				esc_html($row['name']),
+				esc_html((string) $row['price']),
+				esc_html($row['unit'] !== '' ? ' / ' . $row['unit'] : ''),
+				$row['active'] ? '' : esc_html(' (вимкнено в касі)')
+			);
+		}
+		echo '</optgroup>';
+	}
+}
+
+/** Як складається ціна: «(1200 + 200) × 1 = 1400 ₴». Показує збережену прив'язку. */
+function raky_render_sky_price(array $ids, float $factor, array $products): void {
+	$parts = [];
+	foreach ($ids as $id) {
+		$parts[] = isset($products[$id]) && is_numeric($products[$id]['price']) ? wc_format_localized_price((string) $products[$id]['price']) : '?';
+	}
+	$sky     = raky_sky_combine($ids, $factor, $products);
+	$formula = count($parts) > 1 ? '(' . implode(' + ', $parts) . ')' : $parts[0];
+	if ($factor !== 1.0) {
+		$formula .= ' × ' . wc_format_localized_decimal((string) $factor);
+	}
+	$result = $sky['price'] === null || $sky['missing'] ? 'ціну не визначено' : wc_format_localized_price((string) $sky['price']) . ' ₴';
+	printf('<p class="form-field"><label>Ціна з каси</label><span>%s = %s</span></p>', esc_html($formula), esc_html($result));
+}
 
 function raky_flavor_row(string $name = '', string $extra = ''): string {
 	return sprintf(
@@ -45,7 +138,7 @@ function raky_flavor_row(string $name = '', string $extra = ''): string {
 function raky_render_flavor_rows(): void {
 	$product = wc_get_product(get_the_ID());
 	$rows    = $product ? raky_product_flavors($product) : [];
-	echo '<div class="form-field" style="padding:9px 12px"><label style="float:none;margin:0 0 6px;display:block;width:auto">Смаки й доплата за кг (шт)</label><div id="raky-flavors">';
+	echo '<div class="form-field" style="padding:9px 12px"><label style="float:none;margin:0 0 6px;display:block;width:auto">Смаки й доплата за одиницю</label><div id="raky-flavors">';
 	foreach ($rows as $row) {
 		echo raky_flavor_row($row['name'], $row['extra'] > 0 ? (string) $row['extra'] : ''); // phpcs:ignore WordPress.Security.EscapeOutput
 	}
@@ -67,7 +160,26 @@ function raky_render_flavor_rows(): void {
 }
 
 add_action('woocommerce_admin_process_product_object', static function (WC_Product $product) {
-	$product->update_meta_data(RAKY_META_UNIT, ($_POST[RAKY_META_UNIT] ?? '') === 'kg' ? 'kg' : 'pcs');
+	$unit = sanitize_key(wp_unslash((string) ($_POST[RAKY_META_UNIT] ?? '')));
+	$product->update_meta_data(RAKY_META_UNIT, isset(raky_units()[$unit]) ? $unit : 'pcs');
+	// Лише цифри; основна позиція одна, додаткові без повтору основної.
+	$main = isset($_POST['raky_sky_id']) ? (raky_sky_ids(wp_unslash($_POST['raky_sky_id']))[0] ?? '') : null; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+	if ($main !== null) {
+		$extra = array_values(array_diff(raky_sky_ids(wp_unslash($_POST['raky_sky_extra'] ?? '')), [$main])); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		foreach ([RAKY_META_SKY_ID => $main, RAKY_META_SKY_EXTRA => implode(',', $extra)] as $key => $value) {
+			if ($value === '') {
+				$product->delete_meta_data($key);
+			} else {
+				$product->update_meta_data($key, $value);
+			}
+		}
+	}
+	$factor = trim((string) wp_unslash($_POST[RAKY_META_SKY_FACTOR] ?? ''));
+	if ($factor === '' || raky_sky_factor($factor) === 1.0) {
+		$product->delete_meta_data(RAKY_META_SKY_FACTOR);
+	} else {
+		$product->update_meta_data(RAKY_META_SKY_FACTOR, (string) raky_sky_factor($factor));
+	}
 	foreach (raky_product_fields() as [$key]) {
 		$product->update_meta_data($key, sanitize_text_field(wp_unslash((string) ($_POST[$key] ?? ''))));
 	}
@@ -103,94 +215,16 @@ add_action('wp_ajax_raky_delete_category', static function () {
 	wp_send_json_success();
 });
 
-add_action('admin_footer', static function () {
+add_action('admin_enqueue_scripts', static function () {
 	$screen = get_current_screen();
 	if (! $screen || $screen->id !== 'product') {
 		return;
 	}
-	?>
-	<script>
-	jQuery(function ($) {
-		var defaultCategory = <?php echo wp_json_encode((string) raky_default_category()); ?>;
-		var deleteNonce = <?php echo wp_json_encode(wp_create_nonce('raky_delete_category')); ?>;
-		// Після додавання WordPress дублює батьківську категорію зверху: переносимо нову підкатегорію в наявну.
-		function mergeDuplicates() {
-			var rows = {};
-			$('#product_catchecklist > li').get().reverse().forEach(function (element) {
-				var row = $(element);
-				var id = row.find('> label input').val();
-				if (!rows[id]) {
-					rows[id] = row;
-					return;
-				}
-				var list = rows[id].children('ul.children');
-				if (!list.length) list = $('<ul class="children"></ul>').appendTo(rows[id]);
-				row.children('ul.children').children('li').each(function () {
-					var value = $(this).find('> label input').val();
-					if (!list.find('> li > label input[value="' + value + '"]').length) $(this).appendTo(list);
-				});
-				row.remove();
-			});
-		}
-		function decorate() {
-			mergeDuplicates();
-			$('#product_catchecklist li').each(function () {
-				var row = $(this);
-				if (row.children('.raky-row-actions').length) return;
-				var id = row.find('> label input').val();
-				var actions = $('<div class="raky-row-actions" style="margin:2px 0 6px 24px;font-size:12px"></div>');
-				if (row.parent().is('#product_catchecklist')) {
-					$('<button type="button" class="button-link raky-add-sub" style="margin-right:10px;font-size:12px"></button>').text('+ Додати підкатегорію').data('term', id).appendTo(actions);
-				}
-				if (id !== defaultCategory) {
-					$('<button type="button" class="button-link button-link-delete raky-delete" style="font-size:12px"></button>').text('× Видалити').data('term', id).appendTo(actions);
-				}
-				row.children('label').first().after(actions);
-			});
-		}
-		function defaultRow() {
-			return $('#product_catchecklist > li').filter(function () {
-				return $(this).find('> label input').val() === defaultCategory;
-			});
-		}
-		$('#product_catchecklist').on('click', '.raky-add-sub', function () {
-			if ($('#product_cat-adder').hasClass('wp-hidden-children')) $('#product_cat-add-toggle').trigger('click');
-			$('#newproduct_cat_parent').val($(this).data('term'));
-			$('#newproduct_cat').trigger('focus');
-		});
-		$('#product_catchecklist').on('click', '.raky-delete', function () {
-			var button = $(this);
-			var row = button.closest('li');
-			var name = row.find('> label').text().trim();
-			var question = 'Видалити «' + name + '»? Підкатегорії й товари перейдуть у «Без категорії».';
-			if (!window.confirm(question)) return;
-			button.prop('disabled', true);
-			$.post(ajaxurl, { action: 'raky_delete_category', term_id: button.data('term'), _ajax_nonce: deleteNonce })
-				.done(function (response) {
-					if (!response.success) {
-						button.prop('disabled', false);
-						window.alert(response.data);
-						return;
-					}
-					var target = defaultRow();
-					var list = target.children('ul.children');
-					if (!list.length) list = $('<ul class="children"></ul>').appendTo(target);
-					row.children('ul.children').children('li').appendTo(list);
-					if (row.find('> label input').prop('checked')) target.find('> label input').prop('checked', true);
-					$('#newproduct_cat_parent option[value="' + button.data('term') + '"]').remove();
-					$('#product_catchecklist-pop input[value="' + button.data('term') + '"]').closest('li').remove();
-					row.remove();
-				})
-				.fail(function () {
-					button.prop('disabled', false);
-					window.alert('Не вдалося видалити категорію. Спробуйте ще раз.');
-				});
-		});
-		decorate();
-		$(document).ajaxComplete(decorate);
-	});
-	</script>
-	<?php
+	wp_enqueue_script('raky-admin-categories', plugins_url('assets/admin-categories.js', __DIR__), ['jquery'], '0.2.0', true);
+	wp_localize_script('raky-admin-categories', 'rakyCategories', [
+		'defaultCategory' => (string) raky_default_category(),
+		'deleteNonce'     => wp_create_nonce('raky_delete_category'),
+	]);
 });
 
 /** Час приготування на сторінці замовлення. Коментар клієнта WooCommerce показує сам. */
@@ -233,22 +267,33 @@ function raky_render_settings_page(): void {
 		$error = raky_save_settings();
 		$saved = $error === null;
 	}
+	$report = null;
+	if (isset($_POST['raky_sky_action'])) {
+		check_admin_referer('raky_skyservice');
+		$action = sanitize_key(wp_unslash((string) $_POST['raky_sky_action']));
+		if ($action === 'save' || $action === 'disconnect') {
+			$_POST['sky_disconnect'] = $action === 'disconnect' ? '1' : '';
+			$error = raky_sky_save_settings();
+			$saved = $error === null;
+		} else {
+			$report = raky_sky_sync($action === 'preview');
+			if (is_wp_error($report)) {
+				$error  = $report->get_error_message();
+				$report = null;
+			} else {
+				$report['preview'] = $action === 'preview';
+			}
+		}
+	}
 	$settings = raky_get_settings();
-	$sync     = get_option('raky_last_sync');
 	$json     = JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT;
 	?>
 	<div class="wrap">
 		<h1>Налаштування застосунку</h1>
-		<?php if ($error) : ?><div class="notice notice-error"><p><?php echo esc_html($error); ?></p></div><?php endif; ?>
+		<?php // Зупинку входу в Skyservice показує блок Skyservice, тут її не дублюємо. ?>
+		<?php if ($error && $error !== raky_sky_settings()['stopped']) : ?><div class="notice notice-error"><p><?php echo esc_html($error); ?></p></div><?php endif; ?>
 		<?php if ($saved) : ?><div class="notice notice-success"><p>Збережено.</p></div><?php endif; ?>
-		<?php if ($sync) : ?>
-			<p>
-				Остання синхронізація цін: <?php echo esc_html(wp_date('d.m.Y H:i', $sync['at'])); ?>.
-				Оновлено: <?php echo count($sync['report']['updated']); ?>,
-				відхилено: <?php echo count($sync['report']['rejected']); ?>,
-				невідомих артикулів: <?php echo count($sync['report']['unknown_sku']); ?>.
-			</p>
-		<?php endif; ?>
+		<?php raky_render_sky_section($report); ?>
 		<form method="post">
 			<?php wp_nonce_field('raky_settings'); ?>
 			<h2>Реквізити для оплати</h2>
@@ -268,4 +313,119 @@ function raky_render_settings_page(): void {
 		</form>
 	</div>
 	<?php
+}
+
+/** Блок Skyservice: підключення, точка, звіт про останню синхронізацію. */
+function raky_render_sky_section(?array $report): void {
+	$sky   = raky_sky_settings();
+	$ready = raky_sky_ready();
+	$last  = get_option('raky_last_sync');
+	$url   = $sky['company_id'] !== '' ? sprintf('https://dashboard.skyservice.online/%s/', $sky['company_id']) : '';
+	?>
+	<h2>Ціни зі Skyservice</h2>
+	<p>
+		Ціни й наявність прив'язаних товарів оновлюються з каси кожні 10 хвилин.
+		Товар прив'язується в його картці, полем «Товар у Skyservice».
+	</p>
+	<?php if ($sky['stopped'] !== '') : ?>
+		<div class="notice notice-error inline"><p><?php echo esc_html($sky['stopped']); ?></p></div>
+	<?php endif; ?>
+	<form method="post">
+		<?php wp_nonce_field('raky_skyservice'); ?>
+		<table class="form-table" role="presentation">
+			<tr>
+				<th scope="row"><label for="sky_url">Адреса кабінету</label></th>
+				<td>
+					<input id="sky_url" name="sky_url" class="large-text" value="<?php echo esc_attr($url); ?>" placeholder="https://….dashboard.skyservice.online/…/">
+					<p class="description">Скопіюйте з адресного рядка після входу в Skyservice.</p>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><label for="sky_login">Телефон для входу</label></th>
+				<td>
+					<input id="sky_login" name="sky_login" class="regular-text" inputmode="tel" autocomplete="off" value="<?php echo esc_attr($sky['login'] !== '' ? '+' . $sky['login'] : ''); ?>" placeholder="+380…">
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><label for="sky_password">Пароль Skyservice</label></th>
+				<td>
+					<input id="sky_password" name="sky_password" type="password" class="regular-text" autocomplete="new-password" placeholder="<?php echo esc_attr($sky['password'] !== '' ? 'Збережено. Порожнє поле лишає пароль' : ''); ?>">
+					<p class="description">Пароль зберігається зашифрованим. Після невдалого входу синхронізація зупиняється й не повторює спроб, щоб Skyservice не заблокував вхід.</p>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><label for="sky_tradepoint">Точка цін</label></th>
+				<td><?php raky_render_sky_tradepoints($sky, $ready); ?></td>
+			</tr>
+		</table>
+		<p>
+			<button class="button button-primary" name="raky_sky_action" value="save">Зберегти підключення</button>
+			<?php if ($ready) : ?>
+				<button class="button" name="raky_sky_action" value="preview">Перевірити зміни</button>
+				<button class="button" name="raky_sky_action" value="sync">Синхронізувати зараз</button>
+				<button class="button-link button-link-delete" name="raky_sky_action" value="disconnect" style="margin-left:10px" onclick="return confirm('Відключити Skyservice? Ціни перестануть оновлюватися з каси.')">Відключити</button>
+			<?php endif; ?>
+		</p>
+	</form>
+	<?php
+	if ($report) {
+		raky_render_sync_report($report, $report['preview'] ? 'Перевірка без змін' : 'Синхронізацію виконано');
+	} elseif ($last) {
+		if (! empty($last['error'])) {
+			printf('<div class="notice notice-error inline"><p>Остання спроба %s: %s</p></div>', esc_html(wp_date('d.m.Y H:i', $last['error_at'] ?? $last['at'])), esc_html($last['error']));
+		}
+		if (! empty($last['report'])) {
+			raky_render_sync_report($last['report'], 'Остання синхронізація ' . wp_date('d.m.Y H:i', $last['at']));
+		}
+	}
+}
+
+function raky_render_sky_tradepoints(array $sky, bool $ready): void {
+	$points = $ready ? raky_sky_tradepoints() : [];
+	if (is_wp_error($points) || ! $points) {
+		printf('<input type="hidden" name="sky_tradepoint" value="%s">', esc_attr($sky['tradepoint_id']));
+		echo esc_html($sky['tradepoint_name'] ?: ($ready ? 'Не вдалося отримати список точок.' : 'Спаська 47/3, обереться після підключення.'));
+		return;
+	}
+	echo '<select id="sky_tradepoint" name="sky_tradepoint">';
+	if ($sky['tradepoint_id'] === '') {
+		echo '<option value="">Не вибрано</option>';
+	}
+	foreach ($points as $point) {
+		printf('<option value="%s"%s>%s</option>', esc_attr($point['id']), selected($point['id'], $sky['tradepoint_id'], false), esc_html($point['name']));
+	}
+	echo '</select>';
+}
+
+function raky_render_sync_report(array $report, string $title): void {
+	$updated  = $report['updated'] ?? [];
+	$rejected = $report['rejected'] ?? [];
+	printf(
+		'<p><strong>%s.</strong> Прив\'язано товарів: %d. Змінено: %d, без змін: %d, пропущено: %d.</p>',
+		esc_html($title),
+		(int) ($report['linked'] ?? count($updated) + count($rejected) + (int) ($report['unchanged'] ?? 0)),
+		count($updated),
+		(int) ($report['unchanged'] ?? 0),
+		count($rejected)
+	);
+	if ($updated) {
+		echo '<ul style="list-style:disc;margin-left:20px">';
+		foreach ($updated as $row) {
+			printf(
+				'<li>%s: %s → %s ₴%s</li>',
+				esc_html($row['name']),
+				esc_html((string) $row['old']),
+				esc_html((string) $row['new']),
+				$row['stock'] === 'outofstock' ? esc_html(', немає в наявності') : ''
+			);
+		}
+		echo '</ul>';
+	}
+	if ($rejected) {
+		echo '<p>Пропущено, перевірте вручну:</p><ul style="list-style:disc;margin-left:20px">';
+		foreach ($rejected as $row) {
+			printf('<li>%s: %s</li>', esc_html($row['name']), esc_html(raky_sync_reason($row)));
+		}
+		echo '</ul>';
+	}
 }

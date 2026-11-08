@@ -51,6 +51,6 @@ const styles = StyleSheet.create({
   body: { paddingTop: 10, paddingHorizontal: 14, paddingBottom: 14 },
   box: { borderWidth: 1, borderColor: colors.line, borderRadius: 12, paddingVertical: 6, paddingHorizontal: 11 },
   contact: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
-  contactText: { fontSize: 13, color: colors.text },
+  contactText: { fontSize: 15, color: colors.text },
   socials: { flexDirection: 'row', gap: 18, paddingTop: 10 },
 });

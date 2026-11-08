@@ -1,15 +1,15 @@
 <?php
 /**
  * Plugin Name: Raky Shop
- * Description: Мобільний API магазину: каталог, замовлення за підтвердженням менеджера, зони доставки, синхронізація цін.
- * Version: 0.1.0
+ * Description: Мобільний API магазину: каталог, замовлення за підтвердженням менеджера, зони доставки, ціни зі Skyservice POS.
+ * Version: 0.2.0
  * Requires Plugins: woocommerce
  */
 
 defined('ABSPATH') || exit;
 
 define('RAKY_NS', 'raky/v1');
-define('RAKY_META_UNIT', '_raky_unit');   // kg | pcs
+define('RAKY_META_UNIT', '_raky_unit');   // ключ із raky_units()
 define('RAKY_META_STEP', '_raky_step');   // крок кількості
 define('RAKY_META_MIN', '_raky_min');     // мінімальне замовлення
 define('RAKY_META_CALIBER', '_raky_caliber');       // «середні»
@@ -17,6 +17,7 @@ define('RAKY_META_CALIBER_HINT', '_raky_caliber_hint'); // «30–40 г»
 define('RAKY_META_PER_KG', '_raky_per_kg');         // приблизно штук у кілограмі
 define('RAKY_META_FLAVORS', '_raky_flavors');       // смаки: [[name, extra]], extra — доплата за одиницю товару
 
+require_once __DIR__ . '/includes/l10n.php';
 require_once __DIR__ . '/includes/settings.php';
 require_once __DIR__ . '/includes/zones.php';
 require_once __DIR__ . '/includes/statuses.php';
@@ -24,9 +25,13 @@ require_once __DIR__ . '/includes/catalog.php';
 require_once __DIR__ . '/includes/orders.php';
 require_once __DIR__ . '/includes/promotions.php';
 require_once __DIR__ . '/includes/sync.php';
+require_once __DIR__ . '/includes/skyservice.php';
 require_once __DIR__ . '/includes/admin.php';
 
 register_activation_hook(__FILE__, 'raky_name_default_category');
+register_deactivation_hook(__FILE__, static function () {
+	wp_clear_scheduled_hook(RAKY_SKY_CRON);
+});
 
 add_action('rest_api_init', static function () {
 	// Застосунок звертається напряму, а веб-збірка йде з іншого origin.
@@ -34,7 +39,7 @@ add_action('rest_api_init', static function () {
 	add_filter('rest_pre_serve_request', static function ($value) {
 		header('Access-Control-Allow-Origin: *');
 		header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-		header('Access-Control-Allow-Headers: Content-Type, X-Raky-Sync-Secret');
+		header('Access-Control-Allow-Headers: Content-Type');
 		return $value;
 	});
 
@@ -82,10 +87,5 @@ add_action('rest_api_init', static function () {
 		'methods'             => 'POST',
 		'permission_callback' => '__return_true',
 		'callback'            => 'raky_rest_promo_check',
-	]);
-	register_rest_route(RAKY_NS, '/sync/prices', [
-		'methods'             => 'POST',
-		'permission_callback' => 'raky_sync_permission',
-		'callback'            => 'raky_rest_sync_prices',
 	]);
 });

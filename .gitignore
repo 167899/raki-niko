@@ -1,5 +1,4 @@
 .env
-.sky-session.json
 node_modules/
 backend/cache/
 .DS_Store

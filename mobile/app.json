@@ -8,7 +8,13 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "ua.raky.mykolaiv"
+      "bundleIdentifier": "ua.raky.mykolaiv",
+      "infoPlist": {
+        "CFBundleDevelopmentRegion": "uk",
+        "CFBundleLocalizations": [
+          "uk"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +25,8 @@
       "package": "ua.raky.mykolaiv"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "lang": "uk"
     },
     "scheme": "raky",
     "splash": {

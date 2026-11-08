@@ -1,8 +1,19 @@
 <?php
 defined('ABSPATH') || exit;
 
+/** Одиниці застосунку: [код => підпис]. Кількість у кошику рахується в цих одиницях. */
+function raky_units(): array {
+	return ['g' => 'г', 'kg' => 'кг', '100g' => '100 г', 'l' => 'л', 'ml' => 'мл', 'por' => 'порція', 'pcs' => 'шт'];
+}
+
 function raky_product_unit(WC_Product $product): string {
-	return $product->get_meta(RAKY_META_UNIT) === 'kg' ? 'kg' : 'pcs';
+	$unit = (string) $product->get_meta(RAKY_META_UNIT);
+	return isset(raky_units()[$unit]) ? $unit : 'pcs';
+}
+
+/** Вагові одиниці: точну вагу й суму менеджер підтверджує перед оплатою. */
+function raky_unit_weighed(string $unit): bool {
+	return in_array($unit, ['g', 'kg', '100g'], true);
 }
 
 function raky_product_step(WC_Product $product): float {

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Chip, Empty, Header, Heart, Icon, IconButton, Paragraph, ProductPicture, shared, Warn } from '../components/ui';
-import { capitalize, money, quantity, unitPrice } from '../format';
+import { capitalize, isWeighed, kgPerUnit, money, quantity, unitPrice } from '../format';
 import { useNav } from '../nav';
 import { useShop } from '../shop';
 import { colors } from '../theme';
@@ -110,7 +110,7 @@ export function ProductScreen({ productId }: { productId: number }) {
             </>
           )}
 
-          <Text style={styles.label}>{product.unit === 'kg' ? 'Вага' : 'Кількість'}</Text>
+          <Text style={styles.label}>{isWeighed(product.unit) ? 'Вага' : product.unit === 'l' || product.unit === 'ml' ? 'Об’єм' : 'Кількість'}</Text>
           <View style={styles.stepper}>
             <Pressable
               accessibilityRole="button"
@@ -130,8 +130,10 @@ export function ProductScreen({ productId }: { productId: number }) {
               <Icon name="plus" size={16} />
             </Pressable>
           </View>
-          {product.per_kg > 0 && <Paragraph style={{ marginTop: 8 }}>Приблизно {Math.round(count * product.per_kg)} шт.</Paragraph>}
-          {product.unit === 'kg' && <Warn text="Менеджер уточнить вагу і суму перед оплатою." style={{ marginTop: 10 }} />}
+          {product.per_kg > 0 && kgPerUnit(product.unit) > 0 && (
+            <Paragraph style={{ marginTop: 8 }}>Приблизно {Math.round(count * kgPerUnit(product.unit) * product.per_kg)} шт.</Paragraph>
+          )}
+          {isWeighed(product.unit) && <Warn text="Менеджер уточнить вагу і суму перед оплатою." style={{ marginTop: 10 }} />}
         </View>
       </ScrollView>
       <View style={shared.foot}>
@@ -143,8 +145,8 @@ export function ProductScreen({ productId }: { productId: number }) {
         </View>
         {added ? (
           <View style={styles.actions}>
-            <Button kind="outline" title="Продовжити покупки" style={{ flex: 1 }} onPress={() => nav.tab('home')} />
-            <Button title="Оформити" style={{ flex: 1 }} onPress={() => nav.go({ name: 'cart' })} />
+            <Button kind="outline" title="Продовжити покупки" style={{ flex: 5 }} onPress={() => nav.tab('home')} />
+            <Button title="Оформити" style={{ flex: 4 }} onPress={() => nav.go({ name: 'cart' })} />
           </View>
         ) : (
           <Button
@@ -179,8 +181,8 @@ const styles = StyleSheet.create({
   viewer: { flex: 1, backgroundColor: '#000000' },
   viewerClose: { position: 'absolute', right: 12, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.5)' },
   body: { paddingVertical: 10, paddingHorizontal: 14 },
-  name: { fontSize: 17, lineHeight: 22, fontWeight: '500', color: colors.ink },
-  label: { fontSize: 12, color: colors.text, marginTop: 12, marginBottom: 6 },
+  name: { fontSize: 19, lineHeight: 24, fontWeight: '500', color: colors.ink },
+  label: { fontSize: 14, color: colors.text, marginTop: 12, marginBottom: 6 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { paddingHorizontal: 12 },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -193,8 +195,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  amount: { flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '500', color: colors.ink },
-  price: { fontSize: 13, color: colors.text },
-  total: { fontSize: 17, fontWeight: '500', color: colors.ink },
+  amount: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '500', color: colors.ink },
+  price: { fontSize: 15, color: colors.text },
+  total: { fontSize: 19, fontWeight: '500', color: colors.ink },
   actions: { flexDirection: 'row', gap: 8 },
 });

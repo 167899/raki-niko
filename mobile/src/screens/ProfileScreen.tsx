@@ -68,5 +68,5 @@ export function ProfileScreen() {
 const styles = StyleSheet.create({
   body: { paddingTop: 10, paddingHorizontal: 14, paddingBottom: 14 },
   confirm: { flexDirection: 'row', gap: 6, marginTop: 8 },
-  link: { fontSize: 13, color: colors.red },
+  link: { fontSize: 15, color: colors.red },
 });

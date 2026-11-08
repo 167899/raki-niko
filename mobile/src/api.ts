@@ -1,4 +1,5 @@
 import { ApiError } from './apiError';
+import type { Unit } from './format';
 
 export { ApiError };
 
@@ -6,7 +7,7 @@ const BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://127.0.0.1:9400').re
 
 export type Category = { id: number; name: string; slug: string };
 
-/** extra: доплата за кілограм або штуку. */
+/** extra: доплата за одиницю товару. */
 export type Flavor = { name: string; extra: number };
 
 export type Product = {
@@ -16,7 +17,7 @@ export type Product = {
   description: string;
   category_id: number;
   price: number;
-  unit: 'kg' | 'pcs';
+  unit: Unit;
   step: number;
   min: number;
   in_stock: boolean;
@@ -89,7 +90,7 @@ export type Order = {
   key: string;
   status: { code: OrderStatusCode; label: string };
   created_at: string | null;
-  items: { name: string; quantity: number; unit: 'kg' | 'pcs'; flavor: string; total: number }[];
+  items: { name: string; quantity: number; unit: Unit; flavor: string; total: number }[];
   shipping: number;
   discount: number;
   delivery_type: 'delivery' | 'pickup' | '';

@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingHorizontal: 14,
   },
-  title: { fontSize: 15, fontWeight: '500', color: colors.ink, marginBottom: 8 },
+  title: { fontSize: 17, fontWeight: '500', color: colors.ink, marginBottom: 8 },
   wheels: { flexDirection: 'row', gap: 6 },
   wheel: { flex: 1, height: ROW * VISIBLE_ROWS },
   wheelWide: { flex: 3, height: ROW * VISIBLE_ROWS },
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.soft,
   },
   row: { height: ROW, alignItems: 'center', justifyContent: 'center' },
-  rowText: { fontSize: 14, color: colors.text },
-  rowTextOn: { fontSize: 15, fontWeight: '500', color: colors.softInk },
+  rowText: { fontSize: 16, color: colors.text },
+  rowTextOn: { fontSize: 17, fontWeight: '500', color: colors.softInk },
   actions: { flexDirection: 'row', gap: 8, marginTop: 12 },
 });

@@ -33,6 +33,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 9, paddingVertical: 9, paddingHorizontal: 2, borderBottomWidth: 1, borderBottomColor: '#EEEEEE' },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.red, marginTop: 5 },
   dotRead: { backgroundColor: 'transparent' },
-  title: { fontSize: 13, fontWeight: '500', color: colors.ink },
-  date: { fontSize: 11, color: colors.text, marginTop: 2 },
+  title: { fontSize: 15, fontWeight: '500', color: colors.ink },
+  date: { fontSize: 13, color: colors.text, marginTop: 2 },
 });

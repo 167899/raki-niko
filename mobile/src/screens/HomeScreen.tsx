@@ -100,7 +100,7 @@ function ProductCard({ card: { product, title, fromPrice } }: { card: Card }) {
   const { favorites } = useShop();
   return (
     <View style={styles.card}>
-      <ProductPicture product={product} size={30} style={styles.pic} />
+      <ProductPicture product={product} size={44} style={styles.pic} />
       <View style={styles.cardHeart}>
         <Heart id={product.id} on={favorites.includes(product.id)} />
       </View>
@@ -199,25 +199,27 @@ export function HomeScreen() {
 
 const styles = StyleSheet.create({
   top: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 9, paddingHorizontal: gutter },
-  brand: { flex: 1, fontSize: 15, fontWeight: '500', color: colors.ink },
+  brand: { flex: 1, fontSize: 17, fontWeight: '500', color: colors.ink },
   profile: { width: 'auto', flexDirection: 'row', gap: 1, paddingHorizontal: 2 },
   search: { paddingHorizontal: gutter, paddingBottom: 8 },
   searchIcon: { position: 'absolute', left: gutter + 10, top: 9, zIndex: 1 },
   bannerFrame: { borderRadius: 12, overflow: 'hidden' },
   banner: { height: 106, paddingVertical: 12, paddingHorizontal: 14, justifyContent: 'center', overflow: 'hidden' },
-  bannerSmall: { fontSize: 12, color: colors.white },
-  bannerTitle: { fontSize: 17, lineHeight: 21, fontWeight: '500', color: colors.white },
+  bannerSmall: { fontSize: 14, color: colors.white },
+  bannerTitle: { fontSize: 19, lineHeight: 23, fontWeight: '500', color: colors.white },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 5, paddingVertical: 6 },
   dotHit: { width: 18, height: 18, alignItems: 'center', justifyContent: 'center' },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#AAAAAA' },
   dotOn: { backgroundColor: colors.red },
   cats: { flexDirection: 'row', gap: 6, paddingHorizontal: gutter, paddingBottom: 8 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8, paddingHorizontal: gutter, paddingBottom: 10 },
-  card: { width: '48.8%', minHeight: 186, borderWidth: 1, borderColor: colors.line, borderRadius: 12, overflow: 'hidden' },
-  pic: { height: 82 },
+  card: { width: '48.8%', borderWidth: 1, borderColor: colors.line, borderRadius: 12, overflow: 'hidden' },
+  // Квадратне фото: висота дорівнює ширині картки.
+  pic: { aspectRatio: 1 },
   cardHeart: { position: 'absolute', zIndex: 1, top: 3, right: 3 },
-  cardBody: { flex: 1, paddingTop: 7, paddingHorizontal: 8, paddingBottom: 8 },
-  cardName: { flex: 1, fontSize: 12, lineHeight: 16, color: colors.ink },
-  cardPrice: { fontSize: 13, fontWeight: '500', color: colors.ink, marginTop: 3, marginBottom: 5 },
-  nothing: { textAlign: 'center', fontSize: 13, color: colors.text, paddingVertical: 24 },
+  cardBody: { paddingTop: 7, paddingHorizontal: 8, paddingBottom: 8 },
+  // Місце під два рядки назви: тоді фото в сусідніх картках однакові.
+  cardName: { minHeight: 36, fontSize: 14, lineHeight: 18, fontWeight: '600', color: colors.ink },
+  cardPrice: { fontSize: 15, fontWeight: '500', color: colors.ink, marginTop: 3, marginBottom: 5 },
+  nothing: { textAlign: 'center', fontSize: 15, color: colors.text, paddingVertical: 24 },
 });
