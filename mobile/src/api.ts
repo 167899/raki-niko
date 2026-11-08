@@ -56,6 +56,8 @@ export type Config = {
   currency: string;
   support_phone: string;
   referral: { enabled: boolean; percent: number };
+  /** Блок банерів на Головній; без значення показується. */
+  banners_on?: boolean;
   outlets: Outlet[];
   zones: Zone[];
 };
@@ -68,6 +70,8 @@ export type Banner = {
   color: string;
   image: string | null;
   code: string | null;
+  /** Які написи видно на банері; старий сервер їх не надсилає — тоді всі. */
+  show?: { title: boolean; label: boolean; subtitle: boolean };
 };
 
 export type News = { id: number; title: string; text: string; date: string };

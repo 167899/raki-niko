@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, LayoutChangeEvent, Pressable, ScrollView, ScrollViewInstance, StyleSheet, Text, View } from 'react-native';
+import { LayoutChangeEvent, Pressable, ScrollView, ScrollViewInstance, StyleSheet, Text, View } from 'react-native';
 import { Banner, Product } from '../api';
+import { BannerFace } from '../components/BannerFace';
 import { Badge, BottomBar, Button, Chip, Empty, Heart, Icon, IconButton, Input, Loading, Logo, ProductPicture, shared } from '../components/ui';
 import { unitPrice } from '../format';
 import { useNav } from '../nav';
@@ -58,12 +59,7 @@ function Banners({ banners }: { banners: Banner[] }) {
           }}
         >
           {banners.map((banner) => (
-            <View key={banner.id} style={[styles.banner, { width, backgroundColor: banner.color || colors.red }]}>
-              {banner.image && <Image source={{ uri: banner.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
-              {!!banner.label && <Text style={styles.bannerSmall}>{banner.label}</Text>}
-              <Text style={styles.bannerTitle}>{banner.title}</Text>
-              {!!banner.subtitle && <Text style={styles.bannerSmall}>{banner.subtitle}</Text>}
-            </View>
+            <BannerFace key={banner.id} banner={banner} style={[styles.banner, { width }]} />
           ))}
         </ScrollView>
       </View>
@@ -118,7 +114,7 @@ function ProductCard({ card: { product, title, fromPrice } }: { card: Card }) {
 
 export function HomeScreen() {
   const nav = useNav();
-  const { catalog, banners, favorites, unread, loadError, reload } = useShop();
+  const { catalog, config, banners, favorites, unread, loadError, reload } = useShop();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<number | null>(null);
 
@@ -174,7 +170,7 @@ export function HomeScreen() {
         )
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <Banners banners={banners} />
+          {config?.banners_on !== false && <Banners banners={banners} />}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cats} keyboardShouldPersistTaps="handled">
             <Chip label="Усі" on={category === null} onPress={() => setCategory(null)} />
             {catalog.categories.map((item) => (
@@ -204,9 +200,7 @@ const styles = StyleSheet.create({
   search: { paddingHorizontal: gutter, paddingBottom: 8 },
   searchIcon: { position: 'absolute', left: gutter + 10, top: 9, zIndex: 1 },
   bannerFrame: { borderRadius: 12, overflow: 'hidden' },
-  banner: { height: 106, paddingVertical: 12, paddingHorizontal: 14, justifyContent: 'center', overflow: 'hidden' },
-  bannerSmall: { fontSize: 14, color: colors.white },
-  bannerTitle: { fontSize: 19, lineHeight: 23, fontWeight: '500', color: colors.white },
+  banner: { height: 106 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 5, paddingVertical: 6 },
   dotHit: { width: 18, height: 18, alignItems: 'center', justifyContent: 'center' },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#AAAAAA' },

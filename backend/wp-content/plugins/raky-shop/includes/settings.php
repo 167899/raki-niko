@@ -26,6 +26,7 @@ function raky_rest_config(): array {
 		'currency'      => get_woocommerce_currency(),
 		'support_phone' => $settings['support_phone'],
 		'referral'      => ['enabled' => (bool) $settings['referral_on'], 'percent' => (float) $settings['referral_pct']],
+		'banners_on'    => raky_banners_on(),
 		'outlets'       => array_values($settings['outlets']),
 		'zones'         => array_values($settings['zones']),
 	];

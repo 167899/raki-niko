@@ -1,5 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BannerFace, BANNER_RATIO } from '../components/BannerFace';
 import { BottomBar, Empty, Header, shared } from '../components/ui';
 import { useNav } from '../nav';
 import { useShop } from '../shop';
@@ -21,10 +22,7 @@ export function PromosScreen() {
         {banners.length ? (
           banners.map((banner) => (
             <View key={banner.id} style={styles.card}>
-              <View style={[styles.head, { backgroundColor: banner.color || colors.red }]}>
-                {!!banner.label && <Text style={styles.label}>{banner.label}</Text>}
-                <Text style={styles.title}>{banner.title}</Text>
-              </View>
+              <BannerFace banner={banner} withSubtitle={false} style={banner.image ? { aspectRatio: BANNER_RATIO } : styles.head} />
               {(!!banner.subtitle || !!banner.code) && (
                 <View style={styles.foot}>
                   <Text style={styles.text}>
@@ -54,8 +52,6 @@ export function PromosScreen() {
 const styles = StyleSheet.create({
   card: { borderWidth: 1, borderColor: colors.line, borderRadius: 12, overflow: 'hidden', marginBottom: 8 },
   head: { paddingVertical: 10, paddingHorizontal: 12 },
-  label: { fontSize: 14, color: colors.white },
-  title: { fontSize: 17, lineHeight: 21, fontWeight: '500', color: colors.white },
   foot: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 10 },
   text: { flex: 1, fontSize: 14, lineHeight: 19, color: colors.text },
   code: { color: colors.ink, fontWeight: '500' },
