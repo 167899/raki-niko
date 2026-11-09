@@ -81,7 +81,7 @@ Android-емулятору потрібна адреса `EXPO_PUBLIC_API_URL=ht
 3. Перший раз: `backend/deploy/deploy.sh raki --setup`. Скрипт ставить WooCommerce й українську мову, вмикає плагін, записує валюту, часовий пояс, точки, зони й категорії (`deploy/setup-production.php`, без демо-товарів) і вимикає WP-Cron від відвідувань.
 4. У панелі додайте cron щохвилини — команду скрипт друкує в кінці.
 5. В адмінці: реквізити, пароль Skyservice, токен Telegram-бота й «Знайти чат», товари й банери.
-6. Застосунок: `EXPO_PUBLIC_API_URL=https://домен` у `mobile/.env`, потім збірка.
+6. Застосунок: збірки EAS (`mobile/eas.json`) уже звертаються до `https://rakiniko.com.ua`. Тестова збірка: `npx eas build --profile preview`, для магазинів: `npx eas build --profile production` і `npx eas submit`. Ідентифікатор застосунку `ua.com.rakiniko` для iOS і Android після першої публікації змінити не можна.
 
 Оновлення плагіна: `backend/deploy/deploy.sh raki`. Інша тека WordPress: `WP_PATH=… ./deploy.sh raki`.
 
