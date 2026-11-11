@@ -16,6 +16,7 @@ defined('ABSPATH') || exit;
 
 const RAKY_TG_OPTION = 'raky_telegram';
 const RAKY_TG_CRON   = 'raky_telegram_poll';
+const RAKY_TG_HEALTH = 'raky_telegram_health';
 const RAKY_TG_API    = 'https://api.telegram.org/bot';
 const RAKY_TG_SETUP  = 2; // піднімається, коли змінюються команди меню чи типи оновлень
 const RAKY_TG_UPDATES = ['callback_query', 'message'];
@@ -539,10 +540,31 @@ function raky_tg_poll(): void {
 
 add_filter('cron_schedules', static function (array $schedules) {
 	$schedules['raky_minute'] = ['interval' => MINUTE_IN_SECONDS, 'display' => 'Telegram: щохвилини'];
+	$schedules['raky_5min']   = ['interval' => 5 * MINUTE_IN_SECONDS, 'display' => 'Telegram: раз на 5 хвилин'];
 	return $schedules;
 });
 
 add_action(RAKY_TG_CRON, 'raky_tg_poll');
+
+/**
+ * Раз на 5 хвилин: чи Telegram досі шле натискання на сайт. Webhook могли зняти
+ * (пошук чатів, інший сервер з тим самим ботом) — тоді він ставиться знову.
+ */
+function raky_tg_check_webhook(): void {
+	if (! raky_tg_ready() || raky_tg_settings()['mode'] !== 'webhook') {
+		return;
+	}
+	$info = raky_tg_api('getWebhookInfo');
+	if (is_wp_error($info)) {
+		return;
+	}
+	$broken = ($info['url'] ?? '') !== rest_url(RAKY_NS . '/telegram') || array_diff(RAKY_TG_UPDATES, (array) ($info['allowed_updates'] ?? []));
+	if ($broken) {
+		$result = raky_tg_connect();
+		raky_tg_update(['error' => is_wp_error($result) ? 'Не вдалося відновити зв\'язок із Telegram: ' . $result->get_error_message() : '']);
+	}
+}
+add_action(RAKY_TG_HEALTH, 'raky_tg_check_webhook');
 
 add_action('init', static function () {
 	$needed    = raky_tg_ready() && raky_tg_settings()['mode'] === 'polling';
@@ -551,6 +573,13 @@ add_action('init', static function () {
 		wp_schedule_event(time() + MINUTE_IN_SECONDS, 'raky_minute', RAKY_TG_CRON);
 	} elseif (! $needed && $scheduled) {
 		wp_clear_scheduled_hook(RAKY_TG_CRON);
+	}
+	$watch = raky_tg_ready() && raky_tg_settings()['mode'] === 'webhook';
+	$checking = wp_next_scheduled(RAKY_TG_HEALTH);
+	if ($watch && ! $checking) {
+		wp_schedule_event(time() + 5 * MINUTE_IN_SECONDS, 'raky_5min', RAKY_TG_HEALTH);
+	} elseif (! $watch && $checking) {
+		wp_clear_scheduled_hook(RAKY_TG_HEALTH);
 	}
 });
 
@@ -620,6 +649,10 @@ function raky_tg_handle_form(string $action): array {
 
 		case 'find':
 			$chats = raky_tg_find_chats();
+			// Пошук чатів знімає webhook: без нього кнопки під замовленнями перестають працювати.
+			if ($settings['chat_id'] !== '') {
+				raky_tg_connect();
+			}
 			if (is_wp_error($chats)) {
 				return [$chats->get_error_message(), null, []];
 			}
@@ -629,10 +662,6 @@ function raky_tg_handle_form(string $action): array {
 				return ['Бот ще не бачить жодного чату. Напишіть у групі менеджерів ' . $command . ' (або видаліть бота з групи й додайте знову) і натисніть «Знайти чат» ще раз.', null, []];
 			}
 			set_transient('raky_tg_chats', $chats, HOUR_IN_SECONDS);
-			// Пошук чатів зняв webhook: повертаємо його, якщо чат уже був.
-			if ($settings['chat_id'] !== '') {
-				raky_tg_connect();
-			}
 			return [null, null, $chats];
 
 		case 'test':
@@ -654,6 +683,9 @@ function raky_render_tg_section(?array $chats): void {
 	<h2>Telegram-бот для замовлень</h2>
 	<p>Нові замовлення приходять у чат менеджерів. Статус змінюється кнопками під замовленням, а повідомлення саме показує, хто й коли його змінив.</p>
 	<p>З того ж чату можна додавати новини в застосунок: кнопка «Меню» → <code>/news</code>, далі бот підкаже.</p>
+	<?php if ($settings['error'] !== '') : ?>
+		<div class="notice notice-error inline"><p><?php echo esc_html($settings['error']); ?></p></div>
+	<?php endif; ?>
 	<?php if ($settings['token'] === '' || $settings['chat_id'] === '') : ?>
 		<ol>
 			<li>У Telegram відкрийте <strong>@BotFather</strong>, надішліть <code>/newbot</code>, придумайте назву й скопіюйте токен.</li>
