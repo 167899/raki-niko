@@ -139,6 +139,7 @@ function raky_tg_order_text(WC_Order $order): string {
 	$lines[] = '🕒 Готуємо на: ' . ($date ? $date->format('d.m H:i') : 'якнайшвидше');
 	$lines[] = '💳 ' . raky_tg_escape($order->get_payment_method_title());
 	$lines[] = '';
+	$addons  = raky_order_addons($order);
 	foreach ($order->get_items() as $item) {
 		$product = $item->get_product();
 		$unit    = $product ? raky_product_unit($product) : 'pcs';
@@ -150,6 +151,9 @@ function raky_tg_order_text(WC_Order $order): string {
 			raky_quantity_label((float) $item->get_quantity(), $unit),
 			raky_tg_money((float) $item->get_total())
 		);
+		foreach ($addons[$item->get_id()] ?? [] as $addon) {
+			$lines[] = sprintf('   + %s × %d — %s', raky_tg_escape($addon['name']), $addon['quantity'], raky_tg_money($addon['total']));
+		}
 	}
 	foreach ($order->get_coupon_codes() as $code) {
 		$lines[] = '🏷 Промокод ' . raky_tg_escape(strtoupper($code));

@@ -1,10 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { api, ApiError, Banner, Catalog, Config, News, Order, OrderItem, OrderStatusCode, Product } from './api';
+import { AddonCounts, api, ApiError, Banner, Catalog, Config, News, Order, OrderItem, OrderStatusCode, Product } from './api';
 import { phoneDigits } from './format';
 
-export type CartLine = { productId: number; flavor: string; quantity: number };
-export type ResolvedLine = CartLine & { product: Product; unitPrice: number; total: number };
+/** addons: «Додатково» до цього рядка, назва → штук. Старі записи кошика поля не мають. */
+export type CartLine = { productId: number; flavor: string; quantity: number; addons?: AddonCounts };
+export type ChosenAddon = { name: string; quantity: number; price: number };
+/** total — товар разом із додатками. */
+export type ResolvedLine = CartLine & { product: Product; unitPrice: number; extras: ChosenAddon[]; total: number };
 
 /** Замовлення на цьому пристрої: ключ дає доступ до статусу, lines потрібні для повтору. */
 type SavedOrder = { id: number; key: string; lines: CartLine[] };
@@ -42,7 +45,14 @@ const STATUS_NOTES: Partial<Record<OrderStatusCode, (order: Order) => [string, s
   cancelled: ({ id }) => [`Замовлення № ${id} скасовано`, 'Зателефонуйте нам, якщо є запитання'],
 };
 
+/** Рядок кошика — товар і смак. Повторне додавання збільшує вагу й докладає додатки. */
 const sameLine = (a: CartLine, b: CartLine) => a.productId === b.productId && a.flavor === b.flavor;
+
+const mergeAddons = (a?: AddonCounts, b?: AddonCounts): AddonCounts => {
+  const merged = { ...a };
+  for (const [name, count] of Object.entries(b ?? {})) merged[name] = (merged[name] ?? 0) + count;
+  return merged;
+};
 
 /** Стан, що зберігається на пристрої. До відновлення нічого не записуємо, щоб не стерти збережене. */
 function useStored<T>(key: string, initial: T, restored: boolean) {
@@ -131,7 +141,13 @@ function useShopState() {
         const product = productById.get(line.productId);
         if (!product?.in_stock) return [];
         const unitPrice = product.price + (product.flavors.find((flavor) => flavor.name === line.flavor)?.extra ?? 0);
-        return [{ ...line, product, unitPrice, total: unitPrice * line.quantity }];
+        // Додаток, який прибрали з товару в адмінці, з кошика зникає.
+        const extras = (product.addons ?? []).flatMap((addon) => {
+          const count = line.addons?.[addon.name] ?? 0;
+          return count > 0 ? [{ name: addon.name, quantity: count, price: addon.price }] : [];
+        });
+        const extrasTotal = extras.reduce((sum, addon) => sum + addon.price * addon.quantity, 0);
+        return [{ ...line, product, unitPrice, extras, total: unitPrice * line.quantity + extrasTotal }];
       }),
     [cart, productById],
   );
@@ -139,7 +155,13 @@ function useShopState() {
   const subtotal = useMemo(() => lines.reduce((sum, line) => sum + line.total, 0), [lines]);
 
   const orderItems = useMemo<OrderItem[]>(
-    () => lines.map((line) => ({ product_id: line.productId, quantity: line.quantity, flavor: line.flavor })),
+    () =>
+      lines.map((line) => ({
+        product_id: line.productId,
+        quantity: line.quantity,
+        flavor: line.flavor,
+        addons: line.extras.map(({ name, quantity }) => ({ name, quantity })),
+      })),
     [lines],
   );
 
@@ -147,7 +169,11 @@ function useShopState() {
     (added: CartLine) =>
       setCart((current) =>
         current.some((line) => sameLine(line, added))
-          ? current.map((line) => (sameLine(line, added) ? { ...line, quantity: line.quantity + added.quantity } : line))
+          ? current.map((line) =>
+              sameLine(line, added)
+                ? { ...line, quantity: line.quantity + added.quantity, addons: mergeAddons(line.addons, added.addons) }
+                : line,
+            )
           : [...current, added],
       ),
     [setCart],
@@ -156,6 +182,14 @@ function useShopState() {
   const setLineQuantity = useCallback(
     (target: CartLine, quantity: number) =>
       setCart((current) => current.map((line) => (sameLine(line, target) ? { ...line, quantity } : line))),
+    [setCart],
+  );
+
+  const setLineAddon = useCallback(
+    (target: CartLine, name: string, count: number) =>
+      setCart((current) =>
+        current.map((line) => (sameLine(line, target) ? { ...line, addons: { ...line.addons, [name]: count } } : line)),
+      ),
     [setCart],
   );
 
@@ -319,6 +353,7 @@ function useShopState() {
     orderItems,
     addToCart,
     setLineQuantity,
+    setLineAddon,
     removeLine,
     clearCart,
     promo,

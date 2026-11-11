@@ -21,7 +21,14 @@ const STATUS: Record<OrderStatusCode, { label: string; color: string; step: numb
 
 function orderText(order: Order): string {
   const items = order.items.map((item) =>
-    [item.name, item.flavor.toLowerCase(), quantity(item.quantity, item.unit)].filter(Boolean).join(', '),
+    [
+      item.name,
+      item.flavor.toLowerCase(),
+      quantity(item.quantity, item.unit),
+      ...(item.addons ?? []).map((addon) => `${addon.name.toLowerCase()} × ${addon.quantity}`),
+    ]
+      .filter(Boolean)
+      .join(', '),
   );
   if (order.delivery_type === 'pickup') items.push(`самовивіз, ${order.address}`);
   return items.join('; ');

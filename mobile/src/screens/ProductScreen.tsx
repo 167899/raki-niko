@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
+import { AddonCounts } from '../api';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Chip, Empty, Header, Heart, Icon, IconButton, Paragraph, ProductPicture, shared, Warn } from '../components/ui';
+import { AddonChip, Button, Chip, Empty, Header, Heart, Icon, IconButton, Paragraph, ProductPicture, shared, Warn } from '../components/ui';
 import { capitalize, isWeighed, kgPerUnit, money, quantity, unitPrice } from '../format';
 import { useNav } from '../nav';
 import { useShop } from '../shop';
@@ -26,6 +27,7 @@ export function ProductScreen({ productId }: { productId: number }) {
   const { catalog, productById, favorites, addToCart } = useShop();
   const [selectedId, setSelectedId] = useState(productId);
   const [flavor, setFlavor] = useState<string | null>(null);
+  const [addons, setAddons] = useState<AddonCounts>({});
   const [amount, setAmount] = useState<number | null>(null);
   const [added, setAdded] = useState(false);
   const [viewing, setViewing] = useState(false);
@@ -52,6 +54,10 @@ export function ProductScreen({ productId }: { productId: number }) {
   const photo = product.image_large ?? product.image;
   const chosen = product.flavors.find((item) => item.name === flavor) ?? product.flavors[0];
   const unitCost = product.price + (chosen?.extra ?? 0);
+  const offered = product.addons ?? [];
+  // Калібри — різні товари з різними додатками, тож лічимо лише ті, що є в поточного.
+  const picked = Object.fromEntries(offered.flatMap((addon) => ((addons[addon.name] ?? 0) > 0 ? [[addon.name, addons[addon.name]]] : [])));
+  const addonsCost = offered.reduce((sum, addon) => sum + addon.price * (picked[addon.name] ?? 0), 0);
 
   const change = (update: () => void) => {
     update();
@@ -110,6 +116,22 @@ export function ProductScreen({ productId }: { productId: number }) {
             </>
           )}
 
+          {offered.length > 0 && (
+            <>
+              <Text style={styles.label}>Додатково</Text>
+              <View style={[styles.chips, styles.addons]}>
+                {offered.map((item) => (
+                  <AddonChip
+                    key={item.name}
+                    label={item.price > 0 ? `${item.name} +${money(item.price)}` : item.name}
+                    count={picked[item.name] ?? 0}
+                    onChange={(next) => change(() => setAddons((current) => ({ ...current, [item.name]: next })))}
+                  />
+                ))}
+              </View>
+            </>
+          )}
+
           <Text style={styles.label}>{isWeighed(product.unit) ? 'Вага' : product.unit === 'l' || product.unit === 'ml' ? 'Об’єм' : 'Кількість'}</Text>
           <View style={styles.stepper}>
             <Pressable
@@ -141,7 +163,7 @@ export function ProductScreen({ productId }: { productId: number }) {
           <Text style={styles.price}>
             {unitPrice(unitCost, product.unit)}
           </Text>
-          <Text style={styles.total}>{money(unitCost * count)}</Text>
+          <Text style={styles.total}>{money(unitCost * count + addonsCost)}</Text>
         </View>
         {added ? (
           <View style={styles.actions}>
@@ -152,7 +174,7 @@ export function ProductScreen({ productId }: { productId: number }) {
           <Button
             title="Додати в кошик"
             onPress={() => {
-              addToCart({ productId: product.id, flavor: chosen?.name ?? '', quantity: count });
+              addToCart({ productId: product.id, flavor: chosen?.name ?? '', quantity: count, addons: picked });
               setAdded(true);
               nav.showToast('Додано в кошик');
             }}
@@ -185,6 +207,8 @@ const styles = StyleSheet.create({
   label: { fontSize: 14, color: colors.text, marginTop: 12, marginBottom: 6 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { paddingHorizontal: 12 },
+  // Кружечок із кількістю виступає за кнопку, тому ряд без проміжку: відступи дає сама кнопка.
+  addons: { gap: 0, marginTop: -7 },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   step: {
     width: 34,

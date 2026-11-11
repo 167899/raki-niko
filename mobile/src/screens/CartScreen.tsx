@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BottomBar, Button, Empty, ErrorText, Header, Icon, Input, Paragraph, ProductPicture, shared, Warn } from '../components/ui';
+import { AddonChip, BottomBar, Button, Empty, ErrorText, Header, Icon, Input, Paragraph, ProductPicture, shared, Warn } from '../components/ui';
 import { isWeighed, money, quantity } from '../format';
 import { useNav } from '../nav';
 import { ResolvedLine, useShop } from '../shop';
 import { colors } from '../theme';
 
 function CartRow({ line }: { line: ResolvedLine }) {
-  const { removeLine, setLineQuantity } = useShop();
+  const { removeLine, setLineQuantity, setLineAddon } = useShop();
   const { product } = line;
   const details = [product.caliber_hint, line.flavor.toLowerCase()].filter(Boolean).join(', ');
   return (
@@ -41,6 +41,18 @@ function CartRow({ line }: { line: ResolvedLine }) {
           </Pressable>
           <Text style={styles.lineTotal}>{money(line.total)}</Text>
         </View>
+        {line.extras.length > 0 && (
+          <View style={styles.extras}>
+            {line.extras.map((addon) => (
+              <AddonChip
+                key={addon.name}
+                label={`${addon.name} +${money(addon.price)}`}
+                count={addon.quantity}
+                onChange={(count) => setLineAddon(line, addon.name, count)}
+              />
+            ))}
+          </View>
+        )}
       </View>
     </View>
   );
@@ -134,6 +146,7 @@ const styles = StyleSheet.create({
   amountRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   step: { width: 30, height: 30, borderWidth: 1, borderColor: colors.border, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   amount: { minWidth: 44, textAlign: 'center', fontSize: 15, color: colors.ink },
+  extras: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 1 },
   lineTotal: { flex: 1, textAlign: 'right', fontSize: 16, fontWeight: '500', color: colors.ink },
   summary: { paddingTop: 8, paddingHorizontal: 14, paddingBottom: 12, borderTopWidth: 1, borderTopColor: colors.line },
   promoLabel: { fontSize: 14, color: colors.text, marginBottom: 4 },

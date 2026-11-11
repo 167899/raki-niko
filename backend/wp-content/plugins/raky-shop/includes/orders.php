@@ -32,12 +32,23 @@ function raky_clean_phone(string $phone): string {
 	return (string) preg_replace('/[^\d+]/', '', $phone);
 }
 
+/** Вартість товарів без «Додатково»: від неї рахуються промокоди, як і в купонах WooCommerce. */
 function raky_lines_subtotal(array $lines): float {
 	$subtotal = 0.0;
 	foreach ($lines as $line) {
 		$subtotal += $line['unit_price'] * $line['quantity'];
 	}
 	return $subtotal;
+}
+
+function raky_lines_addons_total(array $lines): float {
+	$total = 0.0;
+	foreach ($lines as $line) {
+		foreach ($line['addons'] as $addon) {
+			$total += $addon['price'] * $addon['quantity'];
+		}
+	}
+	return $total;
 }
 
 /** @return array|WP_Error Рядки [product, quantity] */
@@ -64,6 +75,19 @@ function raky_resolve_lines($raw_items) {
 		if ($flavors && ! $chosen) {
 			return raky_error('raky_bad_flavor', sprintf('Оберіть смак для «%s».', $product->get_name()));
 		}
+		$offered = array_column(raky_product_addons($product), 'price', 'name');
+		$addons  = [];
+		foreach ((array) ($item['addons'] ?? []) as $addon) {
+			$addon_name = sanitize_text_field((string) ($addon['name'] ?? ''));
+			$count      = (int) ($addon['quantity'] ?? 0);
+			if ($count < 1) {
+				continue;
+			}
+			if (! isset($offered[$addon_name]) || $count > 99) {
+				return raky_error('raky_bad_addon', sprintf('«%s» більше немає в додатках до «%s». Оновіть кошик.', $addon_name, $product->get_name()), 409);
+			}
+			$addons[] = ['name' => $addon_name, 'price' => (float) $offered[$addon_name], 'quantity' => $count];
+		}
 		$extra   = $chosen ? $chosen['extra'] : 0.0;
 		$lines[] = [
 			'product'    => $product,
@@ -71,6 +95,7 @@ function raky_resolve_lines($raw_items) {
 			'flavor'     => $chosen ? $chosen['name'] : '',
 			'extra'      => $extra,
 			'unit_price' => (float) $product->get_price() + $extra,
+			'addons'     => $addons,
 		];
 	}
 	return $lines;
@@ -148,8 +173,9 @@ function raky_rest_create_order(WP_REST_Request $request) {
 	}
 
 	$subtotal = raky_lines_subtotal($lines);
+	$addons   = raky_lines_addons_total($lines);
 	$fee      = $zone ? (float) $zone['fee'] : 0.0;
-	if ($zone && $subtotal < (float) $zone['min_order']) {
+	if ($zone && $subtotal + $addons < (float) $zone['min_order']) {
 		return raky_error('raky_min_order', sprintf('Мінімальне замовлення для цієї зони — %s грн.', (float) $zone['min_order']), 422);
 	}
 
@@ -160,7 +186,7 @@ function raky_rest_create_order(WP_REST_Request $request) {
 			return $discount;
 		}
 	}
-	$total = round($subtotal - $discount + $fee, 2);
+	$total = round($subtotal + $addons - $discount + $fee, 2);
 
 	// Ціни синхронізуються з POS, тому клієнт має підтвердити суму, яку бачить.
 	$expected = $request->get_param('expected_total');
@@ -181,6 +207,17 @@ function raky_rest_create_order(WP_REST_Request $request) {
 		}
 		if ($line['extra'] > 0) {
 			wc_add_order_item_meta($item_id, 'Доплата за смак, грн за одиницю', $line['extra']);
+		}
+		// Окремим рядком: менеджер змінює вагу раків, а вартість рукавичок лишається.
+		foreach ($line['addons'] as $addon) {
+			$extra_item = new WC_Order_Item_Fee();
+			$extra_item->set_name(sprintf('%s × %d — до «%s»', $addon['name'], $addon['quantity'], $line['product']->get_name()));
+			$extra_item->set_total($addon['price'] * $addon['quantity']);
+			$extra_item->set_tax_status('none');
+			$extra_item->add_meta_data('_raky_for_item', $item_id);
+			$extra_item->add_meta_data('_raky_addon', $addon['name']);
+			$extra_item->add_meta_data('_raky_addon_qty', $addon['quantity']);
+			$order->add_item($extra_item);
 		}
 	}
 
@@ -234,6 +271,7 @@ function raky_order_payload(WC_Order $order): array {
 	$status   = raky_public_status($order->get_status());
 	$weighted = false;
 	$items    = [];
+	$addons   = raky_order_addons($order);
 	foreach ($order->get_items() as $item) {
 		$product = $item->get_product();
 		$unit    = $product ? raky_product_unit($product) : 'pcs';
@@ -244,6 +282,7 @@ function raky_order_payload(WC_Order $order): array {
 			'unit'     => $unit,
 			'flavor'   => (string) $item->get_meta('Смак'),
 			'total'    => (float) $item->get_total(),
+			'addons'   => $addons[$item->get_id()] ?? [],
 		];
 	}
 
@@ -267,6 +306,18 @@ function raky_order_payload(WC_Order $order): array {
 		// Реквізити видаємо лише після підтвердження менеджером.
 		'requisites'   => $awaiting_payment && ! $cash ? raky_get_settings()['requisites'] : null,
 	];
+}
+
+/** «Додатково» замовлення за товарними рядками. @return array<int, array<int, array{name: string, quantity: int, total: float}>> */
+function raky_order_addons(WC_Order $order): array {
+	$out = [];
+	foreach ($order->get_fees() as $fee) {
+		$for = (int) $fee->get_meta('_raky_for_item');
+		if ($for) {
+			$out[$for][] = ['name' => (string) $fee->get_meta('_raky_addon'), 'quantity' => (int) $fee->get_meta('_raky_addon_qty'), 'total' => (float) $fee->get_total()];
+		}
+	}
+	return $out;
 }
 
 function raky_rest_get_order(WP_REST_Request $request) {

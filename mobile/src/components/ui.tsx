@@ -205,6 +205,45 @@ export function Chip({ label, on, onPress, style }: { label: string; on: boolean
 }
 
 /**
+ * «Додатково»: перше натискання додає одну штуку, далі кількість міняється «−» і «+» на самій кнопці.
+ * Кількість показується кружечком, як на кошику в нижньому меню.
+ */
+export function AddonChip({ label, count, onChange }: { label: string; count: number; onChange: (count: number) => void }) {
+  if (count < 1) {
+    return (
+      <Pressable accessibilityRole="button" accessibilityLabel={`Додати: ${label}`} onPress={() => onChange(1)} style={[styles.chip, styles.addon]}>
+        <Text numberOfLines={1} style={styles.chipText}>
+          {label}
+        </Text>
+      </Pressable>
+    );
+  }
+  return (
+    <View style={[styles.chip, styles.chipOn, styles.addon, styles.addonOn]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Менше: ${label}`} hitSlop={6} style={styles.addonStep} onPress={() => onChange(count - 1)}>
+        <Icon name="minus" size={15} color={colors.white} />
+      </Pressable>
+      <Text numberOfLines={1} style={[styles.chipText, styles.chipTextOn]}>
+        {label}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Більше: ${label}`}
+        hitSlop={6}
+        disabled={count >= 99}
+        style={styles.addonStep}
+        onPress={() => onChange(count + 1)}
+      >
+        <Icon name="plus" size={15} color={colors.white} />
+      </Pressable>
+      <View style={styles.cartCount} accessibilityLabel={`${label}: ${count} шт.`}>
+        <Text style={styles.cartCountText}>{count}</Text>
+      </View>
+    </View>
+  );
+}
+
+/**
  * Рамка й тінь фокусу живуть на обгортці: на Android зміна рамки чи тіні самого TextInput
  * замінює його фон, і відступи тексту скидаються.
  */
@@ -428,6 +467,9 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: colors.red, borderColor: colors.red },
   chipText: { fontSize: 15, color: colors.text },
   chipTextOn: { color: colors.white },
+  addon: { marginTop: 7, marginRight: 7 },
+  addonOn: { flexDirection: 'row', gap: 6, paddingHorizontal: 4 },
+  addonStep: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
   inputBox: { height: 38, borderWidth: 1, borderColor: colors.border, borderRadius: 10, backgroundColor: colors.white },
   input: {
     flex: 1,

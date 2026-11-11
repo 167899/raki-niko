@@ -123,36 +123,48 @@ function raky_render_sky_price(array $ids, float $factor, array $products): void
 	printf('<p class="form-field"><label>Ціна з каси</label><span>%s = %s</span></p>', esc_html($formula), esc_html($result));
 }
 
-function raky_flavor_row(string $name = '', string $extra = ''): string {
+/** Рядок списку «назва + сума»: $kind flavor (смак, доплата) або addon (додатково, ціна за штуку). */
+function raky_option_row(string $kind, string $name = '', string $amount = ''): string {
+	$addon = $kind === 'addon';
 	return sprintf(
-		'<div class="raky-flavor" style="display:flex;gap:6px;margin-bottom:6px">'
-		. '<input name="raky_flavor_name[]" placeholder="Назва смаку" value="%s" style="flex:2;float:none;width:auto;min-width:0">'
-		. '<input name="raky_flavor_extra[]" type="number" min="0" step="0.01" placeholder="Доплата, ₴" value="%s" style="flex:1;float:none;width:auto;min-width:0">'
-		. '<button type="button" class="button raky-flavor-remove" style="flex:none" aria-label="Видалити смак">×</button></div>',
+		'<div class="raky-option" style="display:flex;gap:6px;margin-bottom:6px">'
+		. '<input name="raky_%1$s_name[]" placeholder="%2$s" value="%3$s" style="flex:2;float:none;width:auto;min-width:0">'
+		. '<input name="raky_%1$s_extra[]" type="number" min="0" step="0.01" placeholder="%4$s" value="%5$s" style="flex:1;float:none;width:auto;min-width:0">'
+		. '<button type="button" class="button raky-option-remove" style="flex:none" aria-label="Видалити">×</button></div>',
+		$kind,
+		$addon ? 'Назва, напр. Рукавички' : 'Назва смаку',
 		esc_attr($name),
-		esc_attr($extra)
+		$addon ? 'Ціна за шт., ₴' : 'Доплата, ₴',
+		esc_attr($amount)
 	);
 }
 
-/** Смаки: окремий рядок на кожен, доплата за кілограм або штуку. */
+/** Смаки (доплата за кілограм або штуку) і «Додатково» (ціна за штуку): окремий рядок на кожен. */
 function raky_render_flavor_rows(): void {
 	$product = wc_get_product(get_the_ID());
-	$rows    = $product ? raky_product_flavors($product) : [];
-	echo '<div class="form-field" style="padding:9px 12px"><label style="float:none;margin:0 0 6px;display:block;width:auto">Смаки й доплата за одиницю</label><div id="raky-flavors">';
-	foreach ($rows as $row) {
-		echo raky_flavor_row($row['name'], $row['extra'] > 0 ? (string) $row['extra'] : ''); // phpcs:ignore WordPress.Security.EscapeOutput
+	$lists   = [
+		'flavor' => ['Смаки й доплата за одиницю', 'Додати смак', $product ? array_map(static fn ($row) => [$row['name'], $row['extra']], raky_product_flavors($product)) : []],
+		'addon'  => ['Додатково: рукавички, пакети, набори (ціна за штуку)', 'Додати', $product ? array_map(static fn ($row) => [$row['name'], $row['price']], raky_product_addons($product)) : []],
+	];
+	foreach ($lists as $kind => [$title, $button, $rows]) {
+		printf('<div class="form-field" style="padding:9px 12px"><label style="float:none;margin:0 0 6px;display:block;width:auto">%s</label><div id="raky-%s-list">', esc_html($title), esc_attr($kind));
+		foreach ($rows as [$name, $amount]) {
+			echo raky_option_row($kind, $name, $amount > 0 ? (string) $amount : ''); // phpcs:ignore WordPress.Security.EscapeOutput
+		}
+		printf('</div><button type="button" class="button raky-option-add" data-kind="%s">%s</button></div>', esc_attr($kind), esc_html($button));
+		printf('<template id="raky-%s-template">%s</template>', esc_attr($kind), raky_option_row($kind)); // phpcs:ignore WordPress.Security.EscapeOutput
 	}
-	echo '</div><button type="button" class="button" id="raky-flavor-add">Додати смак</button></div>';
 	?>
-	<template id="raky-flavor-template"><?php echo raky_flavor_row(); // phpcs:ignore WordPress.Security.EscapeOutput ?></template>
 	<script>
 	(function () {
-		var list = document.getElementById('raky-flavors');
-		document.getElementById('raky-flavor-add').addEventListener('click', function () {
-			list.appendChild(document.getElementById('raky-flavor-template').content.cloneNode(true));
-		});
-		list.addEventListener('click', function (event) {
-			if (event.target.classList.contains('raky-flavor-remove')) event.target.closest('.raky-flavor').remove();
+		document.querySelectorAll('.raky-option-add').forEach(function (button) {
+			var kind = button.dataset.kind;
+			button.addEventListener('click', function () {
+				document.getElementById('raky-' + kind + '-list').appendChild(document.getElementById('raky-' + kind + '-template').content.cloneNode(true));
+			});
+			document.getElementById('raky-' + kind + '-list').addEventListener('click', function (event) {
+				if (event.target.classList.contains('raky-option-remove')) event.target.closest('.raky-option').remove();
+			});
 		});
 	})();
 	</script>
@@ -193,6 +205,16 @@ add_action('woocommerce_admin_process_product_object', static function (WC_Produ
 		}
 	}
 	$product->update_meta_data(RAKY_META_FLAVORS, $flavors);
+	$names  = array_map('wp_unslash', (array) ($_POST['raky_addon_name'] ?? []));
+	$prices = (array) ($_POST['raky_addon_extra'] ?? []);
+	$addons = [];
+	foreach ($names as $index => $name) {
+		$name = sanitize_text_field((string) $name);
+		if ($name !== '') {
+			$addons[] = ['name' => $name, 'price' => max(0, (float) ($prices[$index] ?? 0))];
+		}
+	}
+	$product->update_meta_data(RAKY_META_ADDONS, $addons);
 });
 
 /**

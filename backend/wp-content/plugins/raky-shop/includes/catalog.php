@@ -90,6 +90,19 @@ function raky_product_flavors(WC_Product $product): array {
 }
 
 /**
+ * «Додатково» до товару: рукавички, пакети, набори. Клієнт обирає кількість кожного, ціна — за штуку.
+ *
+ * @return array<int, array{name: string, price: float}>
+ */
+function raky_product_addons(WC_Product $product): array {
+	$stored = $product->get_meta(RAKY_META_ADDONS); // без поля — порожній рядок
+	return array_values(array_map(
+		static fn (array $addon) => ['name' => (string) $addon['name'], 'price' => (float) $addon['price']],
+		array_filter(is_array($stored) ? $stored : [], 'is_array')
+	));
+}
+
+/**
  * Основна категорія товару й підкатегорія, що об'єднує його калібри.
  *
  * @return array{0: int, 1: string} [ID основної категорії, назва підкатегорії]
@@ -147,6 +160,7 @@ function raky_rest_catalog(): array {
 			'caliber_hint' => (string) $product->get_meta(RAKY_META_CALIBER_HINT),
 			'per_kg'       => (float) $product->get_meta(RAKY_META_PER_KG),
 			'flavors'      => raky_product_flavors($product),
+			'addons'       => raky_product_addons($product),
 		];
 	}
 

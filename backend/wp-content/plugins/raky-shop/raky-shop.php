@@ -16,6 +16,7 @@ define('RAKY_META_CALIBER', '_raky_caliber');       // «середні»
 define('RAKY_META_CALIBER_HINT', '_raky_caliber_hint'); // «30–40 г»
 define('RAKY_META_PER_KG', '_raky_per_kg');         // приблизно штук у кілограмі
 define('RAKY_META_FLAVORS', '_raky_flavors');       // смаки: [[name, extra]], extra — доплата за одиницю товару
+define('RAKY_META_ADDONS', '_raky_addons');         // «Додатково»: [[name, price]], ціна за штуку (рукавички, пакет)
 
 require_once __DIR__ . '/includes/l10n.php';
 require_once __DIR__ . '/includes/settings.php';

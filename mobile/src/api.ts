@@ -10,6 +10,12 @@ export type Category = { id: number; name: string; slug: string };
 /** extra: доплата за одиницю товару. */
 export type Flavor = { name: string; extra: number };
 
+/** «Додатково»: рукавички, пакети, набори. price — за штуку. */
+export type Addon = { name: string; price: number };
+
+/** Обрані додатки: назва → кількість штук. */
+export type AddonCounts = Record<string, number>;
+
 export type Product = {
   id: number;
   sku: string;
@@ -28,6 +34,8 @@ export type Product = {
   caliber_hint: string;
   per_kg: number;
   flavors: Flavor[];
+  /** Старий сервер поле не надсилає. */
+  addons?: Addon[];
 };
 
 export type Catalog = { categories: Category[]; products: Product[] };
@@ -94,7 +102,14 @@ export type Order = {
   key: string;
   status: { code: OrderStatusCode; label: string };
   created_at: string | null;
-  items: { name: string; quantity: number; unit: Unit; flavor: string; total: number }[];
+  items: {
+    name: string;
+    quantity: number;
+    unit: Unit;
+    flavor: string;
+    total: number;
+    addons?: { name: string; quantity: number; total: number }[];
+  }[];
   shipping: number;
   discount: number;
   delivery_type: 'delivery' | 'pickup' | '';
@@ -107,7 +122,12 @@ export type Order = {
   requisites: string | null;
 };
 
-export type OrderItem = { product_id: number; quantity: number; flavor: string };
+export type OrderItem = {
+  product_id: number;
+  quantity: number;
+  flavor: string;
+  addons: { name: string; quantity: number }[];
+};
 
 export type NewOrder = {
   name: string;

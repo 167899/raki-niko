@@ -19,6 +19,11 @@ const creamy = [
   { name: 'З сиром Дор блю', extra: 80 },
 ];
 
+const DEMO_ADDONS = [
+  { name: 'Рукавички', price: 10 },
+  { name: 'Пакет', price: 5 },
+];
+
 function product(
   id: number,
   name: string,
@@ -32,7 +37,7 @@ function product(
   flavors: Product['flavors'],
   image: string | null = null,
 ): Product {
-  const base = { unit: 'kg', step: 0.5, min: 1, in_stock: true, sku: `DEMO-${id}` } as const;
+  const base = { unit: 'kg', step: 0.5, min: 1, in_stock: true, sku: `DEMO-${id}`, addons: DEMO_ADDONS } as const;
   return { ...base, id, name, description, category_id, price, group, caliber, caliber_hint, per_kg, flavors, image, image_large: image };
 }
 
@@ -84,6 +89,18 @@ const unitPrice = (item: OrderItem) => {
 
 const subtotalOf = (items: OrderItem[]) => items.reduce((sum, item) => sum + unitPrice(item) * item.quantity, 0);
 
+const addonsOf = (item: OrderItem) => {
+  const found = catalog.products.find((candidate) => candidate.id === item.product_id)!;
+  return (item.addons ?? []).map((addon) => ({
+    name: addon.name,
+    quantity: addon.quantity,
+    total: (found.addons?.find((offered) => offered.name === addon.name)?.price ?? 0) * addon.quantity,
+  }));
+};
+
+const addonsTotal = (items: OrderItem[]) =>
+  items.reduce((sum, item) => sum + addonsOf(item).reduce((acc, addon) => acc + addon.total, 0), 0);
+
 function discountFor(code: string, items: OrderItem[]): number {
   const percent = PROMOS[code.trim().toUpperCase()];
   if (!percent) throw new ApiError('Такого промокоду немає.', 'raky_bad_promo', 422);
@@ -112,7 +129,7 @@ export const demoApi: Api = {
   quoteDelivery: async () => ({ found: false }),
   checkPromo: async (code, items) => ({ code: code.trim().toUpperCase(), discount: discountFor(code, items) }),
   createOrder: async (order: NewOrder) => {
-    const subtotal = subtotalOf(order.items);
+    const subtotal = subtotalOf(order.items) + addonsTotal(order.items);
     const discount = order.promo ? discountFor(order.promo, order.items) : 0;
     const orders = await loadOrders();
     const outlet = config.outlets.find((candidate) => candidate.id === order.outlet_id);
@@ -127,6 +144,7 @@ export const demoApi: Api = {
         unit: 'kg',
         flavor: item.flavor,
         total: unitPrice(item) * item.quantity,
+        addons: addonsOf(item),
       })),
       shipping: 0,
       discount,
