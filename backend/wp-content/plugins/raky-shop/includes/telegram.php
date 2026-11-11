@@ -8,6 +8,8 @@ defined('ABSPATH') || exit;
  * з Telegram чи з адмінки, і завжди показує поточний статус, суму й кнопки.
  * Натискання приймаються лише з підключеного чату.
  *
+ * З того ж чату менеджери додають новини в застосунок: кнопка «Меню» → /news.
+ *
  * Сайт на https отримує натискання миттєво (webhook). Без https, як на локальному сервері,
  * плагін сам забирає їх щохвилини (getUpdates у WP-Cron).
  */
@@ -15,6 +17,9 @@ defined('ABSPATH') || exit;
 const RAKY_TG_OPTION = 'raky_telegram';
 const RAKY_TG_CRON   = 'raky_telegram_poll';
 const RAKY_TG_API    = 'https://api.telegram.org/bot';
+const RAKY_TG_SETUP  = 2; // піднімається, коли змінюються команди меню чи типи оновлень
+const RAKY_TG_UPDATES = ['callback_query', 'message'];
+const RAKY_TG_NEWS_PROMPT = '📰 Нова новина для застосунку.';
 
 function raky_tg_settings(): array {
 	return array_merge(
@@ -26,6 +31,7 @@ function raky_tg_settings(): array {
 			'mode'       => '', // webhook | polling
 			'secret'     => '', // перевірка запитів webhook
 			'offset'     => 0,  // наступне оновлення для getUpdates
+			'setup'      => 0,  // версія налаштувань бота (команди меню, типи оновлень)
 			'error'      => '',
 		],
 		(array) get_option(RAKY_TG_OPTION, [])
@@ -251,8 +257,12 @@ add_action('woocommerce_order_status_changed', static function (int $order_id, s
 	raky_tg_refresh($order);
 }, 10, 4);
 
-/** Обробляє одне оновлення Telegram: натискання кнопок у підключеному чаті. */
+/** Обробляє одне оновлення Telegram: повідомлення й натискання кнопок у підключеному чаті. */
 function raky_tg_handle_update(array $update): void {
+	if (isset($update['message']) && is_array($update['message'])) {
+		raky_tg_handle_message($update['message']);
+		return;
+	}
 	$query = $update['callback_query'] ?? null;
 	if (! is_array($query)) {
 		return;
@@ -264,6 +274,10 @@ function raky_tg_handle_update(array $update): void {
 		return;
 	}
 	$parts = explode(':', (string) ($query['data'] ?? ''));
+	if ($parts[0] === 'nw') {
+		$answer(raky_tg_news_button($query, $parts));
+		return;
+	}
 	$order = wc_get_order((int) ($parts[1] ?? 0));
 	if (! $order || (int) $order->get_meta('_raky_tg_message') !== (int) ($query['message']['message_id'] ?? 0)) {
 		$answer('Замовлення не знайдено.');
@@ -303,6 +317,146 @@ function raky_tg_handle_update(array $update): void {
 	$answer('');
 }
 
+/** Повідомлення в підключеному чаті: команда /news і відповіді на запит бота. */
+function raky_tg_handle_message(array $message): void {
+	$settings = raky_tg_settings();
+	$chat     = (string) ($message['chat']['id'] ?? '');
+	if ($chat === '' || $chat !== (string) $settings['chat_id']) {
+		return;
+	}
+	$text = trim((string) ($message['text'] ?? $message['caption'] ?? ''));
+	if (preg_match('~^/news(?:@(\w+))?(?:\s+(.*))?$~su', $text, $m)) {
+		if (($m[1] ?? '') !== '' && strcasecmp($m[1], $settings['bot']) !== 0) {
+			return; // команда іншому боту
+		}
+		if (trim($m[2] ?? '') !== '') {
+			raky_tg_news_draft($message, $m[2]);
+			return;
+		}
+		raky_tg_api('sendMessage', [
+			'chat_id'          => $chat,
+			'text'             => RAKY_TG_NEWS_PROMPT . "\n\nНапишіть її у відповідь на це повідомлення: перший рядок — заголовок, далі — текст. Перед публікацією бот покаже, як вона виглядатиме.",
+			'reply_parameters' => ['message_id' => (int) $message['message_id'], 'allow_sending_without_reply' => true],
+			'reply_markup'     => ['force_reply' => true, 'selective' => true, 'input_field_placeholder' => 'Заголовок, з нового рядка — текст'],
+		]);
+		return;
+	}
+	$asked = $message['reply_to_message'] ?? null;
+	if (! is_array($asked) || ! str_starts_with((string) ($asked['text'] ?? ''), RAKY_TG_NEWS_PROMPT)
+		|| strcasecmp((string) ($asked['from']['username'] ?? ''), $settings['bot']) !== 0) {
+		return;
+	}
+	if ($text === '') {
+		raky_tg_api('sendMessage', [
+			'chat_id'          => $chat,
+			'text'             => 'Новини в застосунку поки лише текстові. Надішліть текст командою /news ще раз.',
+			'reply_parameters' => ['message_id' => (int) $message['message_id'], 'allow_sending_without_reply' => true],
+		]);
+		return;
+	}
+	raky_tg_news_draft($message, $text);
+}
+
+/** Чернетка новини з тексту менеджера і повідомлення з кнопками «Опублікувати» / «Скасувати». */
+function raky_tg_news_draft(array $message, string $text): void {
+	$lines = preg_split('/\R/u', trim($text));
+	$title = mb_substr(trim((string) array_shift($lines)), 0, 120);
+	$body  = trim(implode("\n", $lines));
+	$who   = raky_tg_who($message['from'] ?? []);
+	$id    = wp_insert_post([
+		'post_type'    => 'raky_news',
+		'post_status'  => 'draft',
+		'post_title'   => $title,
+		'post_excerpt' => $body,
+	], true);
+	if (is_wp_error($id)) {
+		raky_tg_api('sendMessage', ['chat_id' => $message['chat']['id'], 'text' => 'Не вдалося зберегти новину: ' . $id->get_error_message()]);
+		return;
+	}
+	update_post_meta($id, '_raky_tg_last', 'Чернетка від ' . $who . '. Так новина виглядатиме в застосунку.');
+	$post = get_post($id);
+	$sent = raky_tg_api('sendMessage', [
+		'chat_id'          => $message['chat']['id'],
+		'text'             => raky_tg_news_text($post),
+		'parse_mode'       => 'HTML',
+		'reply_parameters' => ['message_id' => (int) $message['message_id'], 'allow_sending_without_reply' => true],
+		'reply_markup'     => raky_tg_news_keyboard($post),
+	]);
+	if (! is_wp_error($sent)) {
+		update_post_meta($id, '_raky_tg_message', (int) $sent['message_id']);
+	}
+}
+
+function raky_tg_who(array $from): string {
+	return trim(($from['first_name'] ?? '') . ' ' . ($from['last_name'] ?? '')) ?: 'Менеджер';
+}
+
+function raky_tg_news_text(WP_Post $post): string {
+	$icon  = ['draft' => '📝', 'publish' => '✅', 'trash' => '✖️'][$post->post_status] ?? '📰';
+	$lines = [$icon . ' <b>' . raky_tg_escape($post->post_title) . '</b>'];
+	if ($post->post_excerpt !== '') {
+		$lines[] = '';
+		$lines[] = raky_tg_escape($post->post_excerpt);
+	}
+	$last = (string) get_post_meta($post->ID, '_raky_tg_last', true);
+	if ($last !== '') {
+		$lines[] = '';
+		$lines[] = '<i>' . raky_tg_escape($last) . '</i>';
+	}
+	return implode("\n", $lines);
+}
+
+function raky_tg_news_keyboard(WP_Post $post): array {
+	$id   = $post->ID;
+	$rows = [];
+	if ($post->post_status === 'draft') {
+		$rows[] = [['text' => '✅ Опублікувати', 'callback_data' => "nw:$id:publish"], ['text' => '✖️ Скасувати', 'callback_data' => "nw:$id:cancel"]];
+	} elseif ($post->post_status === 'publish') {
+		$rows[] = [['text' => '🗑 Прибрати із застосунку', 'callback_data' => "nw:$id:remove"]];
+	}
+	$url = admin_url('post.php?post=' . $id . '&action=edit');
+	if ($post->post_status !== 'trash' && str_starts_with($url, 'https://')) {
+		$rows[] = [['text' => 'Відкрити в адмінці', 'url' => $url]];
+	}
+	return ['inline_keyboard' => $rows];
+}
+
+/** Кнопки під новиною. @return string відповідь на натискання */
+function raky_tg_news_button(array $query, array $parts): string {
+	$post = get_post((int) ($parts[1] ?? 0));
+	if (! $post || $post->post_type !== 'raky_news' || (int) get_post_meta($post->ID, '_raky_tg_message', true) !== (int) ($query['message']['message_id'] ?? 0)) {
+		return 'Новину не знайдено.';
+	}
+	$action = (string) ($parts[2] ?? '');
+	$from   = ['publish' => 'draft', 'cancel' => 'draft', 'remove' => 'publish'][$action] ?? '';
+	$refresh = static function (WP_Post $post) use ($query): void {
+		raky_tg_api('editMessageText', [
+			'chat_id'      => $query['message']['chat']['id'],
+			'message_id'   => $query['message']['message_id'],
+			'text'         => raky_tg_news_text($post),
+			'parse_mode'   => 'HTML',
+			'reply_markup' => raky_tg_news_keyboard($post),
+		]);
+	};
+	// Кнопка з застарілого стану: новину вже змінили в адмінці чи інший менеджер.
+	if ($from === '' || $post->post_status !== $from) {
+		$refresh($post);
+		return 'Новину вже змінено, повідомлення оновлено.';
+	}
+	$when = sprintf('%s, %s', raky_tg_who($query['from'] ?? []), wp_date('d.m H:i'));
+	if ($action === 'publish') {
+		wp_update_post(['ID' => $post->ID, 'post_status' => 'publish', 'post_date' => current_time('mysql'), 'post_date_gmt' => current_time('mysql', true)]);
+		update_post_meta($post->ID, '_raky_tg_last', 'Опубліковано в застосунку: ' . $when);
+		$answer = 'Новину опубліковано.';
+	} else {
+		wp_trash_post($post->ID);
+		update_post_meta($post->ID, '_raky_tg_last', ($action === 'cancel' ? 'Скасовано: ' : 'Прибрано із застосунку: ') . $when);
+		$answer = $action === 'cancel' ? 'Скасовано.' : 'Новину прибрано.';
+	}
+	$refresh(get_post($post->ID));
+	return $answer;
+}
+
 /**
  * Режим отримання натискань: webhook для https, інакше щохвилинне опитування.
  *
@@ -312,11 +466,12 @@ function raky_tg_connect() {
 	$url = rest_url(RAKY_NS . '/telegram');
 	if (str_starts_with($url, 'https://')) {
 		$secret = wp_generate_password(32, false);
-		$result = raky_tg_api('setWebhook', ['url' => $url, 'secret_token' => $secret, 'allowed_updates' => ['callback_query']]);
+		$result = raky_tg_api('setWebhook', ['url' => $url, 'secret_token' => $secret, 'allowed_updates' => RAKY_TG_UPDATES]);
 		if (is_wp_error($result)) {
 			return $result;
 		}
 		raky_tg_update(['mode' => 'webhook', 'secret' => $secret]);
+		raky_tg_set_commands();
 		return 'webhook';
 	}
 	$result = raky_tg_api('deleteWebhook');
@@ -324,8 +479,33 @@ function raky_tg_connect() {
 		return $result;
 	}
 	raky_tg_update(['mode' => 'polling', 'secret' => '']);
+	raky_tg_set_commands();
 	return 'polling';
 }
+
+/** Кнопка «Меню» в чаті менеджерів. Команди видно лише в цьому чаті. */
+function raky_tg_set_commands(): void {
+	$chat = raky_tg_settings()['chat_id'];
+	if ($chat === '') {
+		return;
+	}
+	$result = raky_tg_api('setMyCommands', [
+		'commands' => [['command' => 'news', 'description' => 'Додати новину в застосунок']],
+		'scope'    => ['type' => 'chat', 'chat_id' => $chat],
+	]);
+	if (! is_wp_error($result)) {
+		raky_tg_update(['setup' => RAKY_TG_SETUP]);
+	}
+}
+
+// Бот, підключений до появи новин, оновлюється сам при першому відкритті адмінки.
+add_action('admin_init', static function () {
+	$settings = raky_tg_settings();
+	if (raky_tg_ready() && (int) $settings['setup'] < RAKY_TG_SETUP && ! get_transient('raky_tg_setup_try')) {
+		set_transient('raky_tg_setup_try', 1, 10 * MINUTE_IN_SECONDS);
+		raky_tg_connect();
+	}
+});
 
 add_action('rest_api_init', static function () {
 	register_rest_route(RAKY_NS, '/telegram', [
@@ -347,7 +527,7 @@ function raky_tg_poll(): void {
 		return;
 	}
 	set_transient('raky_tg_polling', 1, 50);
-	$updates = raky_tg_api('getUpdates', ['offset' => (int) raky_tg_settings()['offset'], 'timeout' => 0, 'allowed_updates' => ['callback_query']]);
+	$updates = raky_tg_api('getUpdates', ['offset' => (int) raky_tg_settings()['offset'], 'timeout' => 0, 'allowed_updates' => RAKY_TG_UPDATES]);
 	if (is_array($updates)) {
 		foreach ($updates as $update) {
 			raky_tg_update(['offset' => (int) $update['update_id'] + 1]);
@@ -473,6 +653,7 @@ function raky_render_tg_section(?array $chats): void {
 	?>
 	<h2>Telegram-бот для замовлень</h2>
 	<p>Нові замовлення приходять у чат менеджерів. Статус змінюється кнопками під замовленням, а повідомлення саме показує, хто й коли його змінив.</p>
+	<p>З того ж чату можна додавати новини в застосунок: кнопка «Меню» → <code>/news</code>, далі бот підкаже.</p>
 	<?php if ($settings['token'] === '' || $settings['chat_id'] === '') : ?>
 		<ol>
 			<li>У Telegram відкрийте <strong>@BotFather</strong>, надішліть <code>/newbot</code>, придумайте назву й скопіюйте токен.</li>
