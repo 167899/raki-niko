@@ -54,6 +54,85 @@ function raky_banner_background(int $post_id): string {
 	return $background === 'image' ? 'image' : 'color';
 }
 
+/**
+ * Умови промокоду зберігаються в самому купоні WooCommerce, тож діють і без банера.
+ * «Одноразово» — стандартний «Ліміт використання на користувача» = 1, рахується за телефоном.
+ */
+const RAKY_FIRST_ORDER_META = '_raky_first_order';
+
+function raky_coupon_first_order_only(WC_Coupon $coupon): bool {
+	return $coupon->get_meta(RAKY_FIRST_ORDER_META) === 'yes';
+}
+
+/** @return WC_Coupon|null Купон за кодом із банера. */
+function raky_banner_coupon(string $code): ?WC_Coupon {
+	if ($code === '') {
+		return null;
+	}
+	$coupon = new WC_Coupon($code);
+	return $coupon->get_id() ? $coupon : null;
+}
+
+/** Рядок «Умови промокоду» в параметрах банера. */
+function raky_banner_rules_row(string $code): void {
+	echo '<tr><th>Умови промокоду</th><td><fieldset>';
+	$coupon = raky_banner_coupon($code);
+	if ($code === '') {
+		echo '<p class="description">Умови з\'являться, коли ви вкажете промокод.</p>';
+	} elseif (! $coupon) {
+		printf(
+			'<p style="color:#b32d2e"><strong>Купона %s немає в WooCommerce.</strong> Створіть його в «Маркетинг → Купони» з розміром знижки, інакше застосунок відповість «Такого промокоду немає». Після цього тут можна буде задати умови.</p>',
+			esc_html(strtoupper($code))
+		);
+	} else {
+		printf('<input type="hidden" name="raky_rules_code" value="%s">', esc_attr($code));
+		printf(
+			'<label style="display:block;margin-bottom:6px"><input type="checkbox" name="raky_once" value="1"%s> Застосовується одноразово — один раз для кожного клієнта</label>',
+			checked($coupon->get_usage_limit_per_user() === 1, true, false)
+		);
+		printf(
+			'<label style="display:block;margin-bottom:6px"><input type="checkbox" name="raky_first_order" value="1"%s> Лише на перше замовлення</label>',
+			checked(raky_coupon_first_order_only($coupon), true, false)
+		);
+		echo '<p class="description">Клієнта впізнаємо за номером телефону. Якщо з цього номера вже є замовлення (крім скасованих), промокод не спрацює. '
+			. 'Покупки на касі без застосунку не враховуються. Ці ж умови є в самому купоні («Маркетинг → Купони»).</p>';
+	}
+	echo '</fieldset></td></tr>';
+}
+
+/** Зберігає умови з банера в купон. Лише якщо форма показувала умови саме цього коду. */
+function raky_banner_save_rules(string $code): void {
+	$shown = sanitize_text_field(wp_unslash((string) ($_POST['raky_rules_code'] ?? '')));
+	$coupon = raky_banner_coupon($code);
+	if (! $coupon || $shown === '' || strtolower($shown) !== strtolower($code)) {
+		return;
+	}
+	if (! empty($_POST['raky_once'])) {
+		$coupon->set_usage_limit_per_user(1);
+	} elseif ($coupon->get_usage_limit_per_user() === 1) {
+		$coupon->set_usage_limit_per_user(0);
+	}
+	$coupon->update_meta_data(RAKY_FIRST_ORDER_META, empty($_POST['raky_first_order']) ? 'no' : 'yes');
+	$coupon->save();
+}
+
+// Та сама позначка в купоні WooCommerce, вкладка «Обмеження використання».
+add_action('woocommerce_coupon_options_usage_restriction', static function ($coupon_id, $coupon) {
+	woocommerce_wp_checkbox([
+		'id'          => 'raky_first_order',
+		'label'       => 'Лише на перше замовлення',
+		'description' => 'Не спрацює, якщо з цього телефону вже є замовлення в застосунку (крім скасованих).',
+		'value'       => $coupon instanceof WC_Coupon && raky_coupon_first_order_only($coupon) ? 'yes' : 'no',
+	]);
+}, 10, 2);
+
+add_action('woocommerce_coupon_options_save', static function ($post_id, $coupon) {
+	if ($coupon instanceof WC_Coupon) {
+		$coupon->update_meta_data(RAKY_FIRST_ORDER_META, empty($_POST['raky_first_order']) ? 'no' : 'yes'); // phpcs:ignore WordPress.Security.NonceVerification -- nonce перевіряє WooCommerce
+		$coupon->save();
+	}
+}, 10, 2);
+
 /** Рекомендований розмір картинки банера; підказка в адмінці бере його звідси. */
 const RAKY_BANNER_IMAGE = '1200×340 пікселів';
 
@@ -73,6 +152,9 @@ add_action('add_meta_boxes_raky_banner', static function () {
 				esc_attr($type),
 				esc_attr($value)
 			);
+			if ($key === 'coupon') {
+				raky_banner_rules_row($value);
+			}
 		}
 
 		echo '<tr><th>Показувати на банері</th><td><fieldset>';
@@ -120,6 +202,7 @@ add_action('save_post_raky_banner', static function (int $post_id) {
 		update_post_meta($post_id, '_raky_show_' . $key, empty($_POST['raky_show_' . $key]) ? '0' : '1');
 	}
 	update_post_meta($post_id, '_raky_background', ($_POST['raky_background'] ?? '') === 'image' ? 'image' : 'color');
+	raky_banner_save_rules((string) get_post_meta($post_id, '_raky_coupon', true));
 });
 
 /** Блок банерів на Головній можна вимкнути, не видаляючи самі банери. */
@@ -199,16 +282,32 @@ function raky_rest_news(): array {
 	], $posts);
 }
 
+/** Записи одного номера, які трапляються в замовленнях: 0…, 380…, +380…. */
+function raky_phone_variants(string $phone): array {
+	$digits = (string) preg_replace('/\D/', '', $phone);
+	if (strlen($digits) < 9) {
+		return [];
+	}
+	$local = substr($digits, -9);
+	return ['0' . $local, '380' . $local, '+380' . $local];
+}
+
+/** Нескасовані замовлення з цим телефоном, хоч би як його записали. @return WC_Order[] */
+function raky_orders_by_phone(string $phone): array {
+	$statuses = array_diff(array_keys(wc_get_order_statuses()), ['wc-cancelled', 'wc-failed', 'wc-refunded']);
+	$orders   = [];
+	foreach (raky_phone_variants($phone) as $variant) {
+		foreach (wc_get_orders(['limit' => -1, 'billing_phone' => $variant, 'status' => $statuses, 'return' => 'objects']) as $order) {
+			$orders[$order->get_id()] = $order;
+		}
+	}
+	return array_values($orders);
+}
+
 /** Скільки разів цей телефон уже використав купон у нескасованих замовленнях. */
 function raky_coupon_uses_by_phone(string $code, string $phone): int {
-	$orders = wc_get_orders([
-		'limit'         => -1,
-		'billing_phone' => $phone,
-		'status'        => array_diff(array_keys(wc_get_order_statuses()), ['wc-cancelled', 'wc-failed', 'wc-refunded']),
-		'return'        => 'objects',
-	]);
 	$uses = 0;
-	foreach ($orders as $order) {
+	foreach (raky_orders_by_phone($phone) as $order) {
 		if (in_array(strtolower($code), array_map('strtolower', $order->get_coupon_codes()), true)) {
 			++$uses;
 		}
@@ -235,6 +334,10 @@ function raky_coupon_discount(string $code, float $subtotal, string $phone) {
 	$per_person = $coupon->get_usage_limit_per_user();
 	if ($per_person > 0 && $phone !== '' && raky_coupon_uses_by_phone($code, $phone) >= $per_person) {
 		return raky_error('raky_bad_promo', 'Ви вже використали цей промокод.', 422);
+	}
+	// Без телефону (гість у кошику) перевірка відбудеться під час оформлення, там телефон обов'язковий.
+	if (raky_coupon_first_order_only($coupon) && $phone !== '' && raky_orders_by_phone($phone)) {
+		return raky_error('raky_bad_promo', 'Промокод діє лише на перше замовлення. Приберіть його в кошику.', 422);
 	}
 	$amount = (float) $coupon->get_amount();
 	return $coupon->get_discount_type() === 'percent'
