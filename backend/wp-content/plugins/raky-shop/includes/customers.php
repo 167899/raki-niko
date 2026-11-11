@@ -56,6 +56,17 @@ function raky_clean_birthday(string $date): string {
 }
 
 /**
+ * Список WooCommerce → «Клієнти» береться з окремої таблиці аналітики.
+ * Користувачів, створених не через оформлення замовлення, WooCommerce туди сам не додає.
+ */
+function raky_client_to_wc_list(int $user_id): void {
+	$store = '\Automattic\WooCommerce\Admin\API\Reports\Customers\DataStore';
+	if (class_exists($store)) {
+		$store::update_registered_customer($user_id);
+	}
+}
+
+/**
  * Імпорт клієнтів зі старого застосунку (експорт Firebase: {телефон: {name, surname, email, birthday, city, card_number, isFirstOrderGiftUsed}}).
  * Повторний запуск оновлює наявних клієнтів і не знімає позначку подарунка, якщо її поставили раніше.
  *
@@ -121,6 +132,7 @@ function raky_import_clients(array $records): array {
 			update_user_meta($id, RAKY_CLIENT_FIRST_GIFT, 'yes');
 		}
 		update_user_meta($id, 'raky_imported', wp_date('Y-m-d'));
+		raky_client_to_wc_list($id);
 	}
 	return $stats;
 }
