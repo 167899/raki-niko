@@ -24,6 +24,7 @@ require_once __DIR__ . '/includes/statuses.php';
 require_once __DIR__ . '/includes/catalog.php';
 require_once __DIR__ . '/includes/orders.php';
 require_once __DIR__ . '/includes/promotions.php';
+require_once __DIR__ . '/includes/customers.php';
 require_once __DIR__ . '/includes/sync.php';
 require_once __DIR__ . '/includes/skyservice.php';
 require_once __DIR__ . '/includes/telegram.php';

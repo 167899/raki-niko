@@ -94,7 +94,7 @@ function raky_banner_rules_row(string $code): void {
 			'<label style="display:block;margin-bottom:6px"><input type="checkbox" name="raky_first_order" value="1"%s> Лише на перше замовлення</label>',
 			checked(raky_coupon_first_order_only($coupon), true, false)
 		);
-		echo '<p class="description">Клієнта впізнаємо за номером телефону. Якщо з цього номера вже є замовлення (крім скасованих), промокод не спрацює. '
+		echo '<p class="description">Клієнта впізнаємо за номером телефону. Якщо з цього номера вже є замовлення (крім скасованих) або в профілі клієнта позначено «Подарунок на перше замовлення вже використано», промокод не спрацює. '
 			. 'Покупки на касі без застосунку не враховуються. Ці ж умови є в самому купоні («Маркетинг → Купони»).</p>';
 	}
 	echo '</fieldset></td></tr>';
@@ -121,7 +121,7 @@ add_action('woocommerce_coupon_options_usage_restriction', static function ($cou
 	woocommerce_wp_checkbox([
 		'id'          => 'raky_first_order',
 		'label'       => 'Лише на перше замовлення',
-		'description' => 'Не спрацює, якщо з цього телефону вже є замовлення в застосунку (крім скасованих).',
+		'description' => 'Не спрацює, якщо з цього телефону вже є замовлення в застосунку (крім скасованих) або в профілі клієнта позначено, що подарунок на перше замовлення використано.',
 		'value'       => $coupon instanceof WC_Coupon && raky_coupon_first_order_only($coupon) ? 'yes' : 'no',
 	]);
 }, 10, 2);
@@ -336,7 +336,7 @@ function raky_coupon_discount(string $code, float $subtotal, string $phone) {
 		return raky_error('raky_bad_promo', 'Ви вже використали цей промокод.', 422);
 	}
 	// Без телефону (гість у кошику) перевірка відбудеться під час оформлення, там телефон обов'язковий.
-	if (raky_coupon_first_order_only($coupon) && $phone !== '' && raky_orders_by_phone($phone)) {
+	if (raky_coupon_first_order_only($coupon) && $phone !== '' && raky_client_had_first_order($phone)) {
 		return raky_error('raky_bad_promo', 'Промокод діє лише на перше замовлення. Приберіть його в кошику.', 422);
 	}
 	$amount = (float) $coupon->get_amount();
