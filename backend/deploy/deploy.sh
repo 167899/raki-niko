@@ -21,7 +21,13 @@ wp core is-installed || { echo "WordPress у $WP_PATH не знайдено. В�
 
 echo "Викладаю плагін…"
 # Демо-дані й тестові фото на бойовому сервері не потрібні.
-rsync -az --delete --exclude tools/seed-demo.php --exclude tools/seed-images "$PLUGIN/" "$HOST:$WP_PATH/$PLUGIN/"
+if ssh "$HOST" 'command -v rsync' >/dev/null; then
+  rsync -az --delete --exclude tools/seed-demo.php --exclude tools/seed-images "$PLUGIN/" "$HOST:$WP_PATH/$PLUGIN/"
+else
+  # На хостингу без rsync: архів у тимчасову теку, потім швидка заміна старої версії.
+  COPYFILE_DISABLE=1 tar --no-xattrs -C "$PLUGIN" --exclude 'tools/seed-demo.php' --exclude 'tools/seed-images' -czf - . |
+    ssh "$HOST" "set -e; cd $WP_PATH/wp-content/plugins; rm -rf raky-shop.new raky-shop.old; mkdir raky-shop.new; tar -xzf - -C raky-shop.new; [ ! -d raky-shop ] || mv raky-shop raky-shop.old; mv raky-shop.new raky-shop; rm -rf raky-shop.old"
+fi
 
 if [ "$2" = "--setup" ]; then
   wp plugin install woocommerce --activate

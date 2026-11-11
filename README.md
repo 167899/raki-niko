@@ -77,13 +77,13 @@ Android-емулятору потрібна адреса `EXPO_PUBLIC_API_URL=ht
 ## Хостинг (HostPro)
 
 1. У панелі HostPro: тариф «Старт» (за потреби підвищується до «Про» без перенесення), сервер у Польщі чи Нідерландах, домен, безкоштовний SSL, WordPress в один клік у `public_html`.
-2. SSH-ключ: додайте `~/.ssh/id_ed25519.pub` у панелі, а в `~/.ssh/config` запишіть хост `raki` (адреса, користувач і порт із панелі).
+2. SSH-ключ: у cPanel «Доступ до SSH» → «Керування ключами SSH» → «Імпортувати ключ» вставте відкритий ключ (`~/.ssh/raki_ed25519.pub`, поле закритого ключа порожнє) і натисніть «Керувати» → «Authorize». У `~/.ssh/config` хост `raki`: сервер `pl-rocket-cms3.hostsila.org`, користувач cPanel, порт 22. Rsync на сервері немає, скрипт сам викладає плагін архівом.
 3. Перший раз: `backend/deploy/deploy.sh raki --setup`. Скрипт ставить WooCommerce й українську мову, вмикає плагін, записує валюту, часовий пояс, точки, зони й категорії (`deploy/setup-production.php`, без демо-товарів) і вимикає WP-Cron від відвідувань.
-4. У панелі додайте cron щохвилини — команду скрипт друкує в кінці.
+4. Cron щохвилини — команду скрипт друкує в кінці. Її можна додати в cPanel «Планувальник завдань» або через `crontab` по SSH.
 5. В адмінці: реквізити, пароль Skyservice, токен Telegram-бота й «Знайти чат», товари й банери.
 6. Застосунок: збірки EAS (`mobile/eas.json`) уже звертаються до `https://rakiniko.com.ua`. Тестова збірка: `npx eas build --profile preview`, для магазинів: `npx eas build --profile production` і `npx eas submit`. Ідентифікатор застосунку `ua.com.rakiniko` для iOS і Android після першої публікації змінити не можна.
 
-Оновлення плагіна: `backend/deploy/deploy.sh raki`. Інша тека WordPress: `WP_PATH=… ./deploy.sh raki`.
+Оновлення плагіна: `backend/deploy/deploy.sh raki`. Кеш LiteSpeed на хостингу не зберігає відповіді API застосунку (`/raky/v1`), тому ціни й статуси одразу свіжі. Інша тека WordPress: `WP_PATH=… ./deploy.sh raki`.
 
 ## Перед публікацією
 

@@ -444,7 +444,9 @@ function raky_tg_handle_form(string $action): array {
 				return [$chats->get_error_message(), null, []];
 			}
 			if (! $chats) {
-				return ['Бот ще не бачить жодного чату. Додайте його в групу менеджерів або напишіть йому /start і натисніть «Знайти чат» знову.', null, []];
+				// Telegram пам'ятає події лише добу, а звичайні повідомлення групи бот не бачить, лише команди.
+				$command = '/start' . ($settings['bot'] !== '' ? '@' . $settings['bot'] : '');
+				return ['Бот ще не бачить жодного чату. Напишіть у групі менеджерів ' . $command . ' (або видаліть бота з групи й додайте знову) і натисніть «Знайти чат» ще раз.', null, []];
 			}
 			set_transient('raky_tg_chats', $chats, HOUR_IN_SECONDS);
 			// Пошук чатів зняв webhook: повертаємо його, якщо чат уже був.

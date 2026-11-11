@@ -34,6 +34,12 @@
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "aa4057dc-12c1-419e-b634-92ecec1a132b"
+      }
+    },
+    "owner": "oleksandr167899"
   }
 }

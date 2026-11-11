@@ -44,6 +44,14 @@ add_action('rest_api_init', static function () {
 		header('Access-Control-Allow-Headers: Content-Type');
 		return $value;
 	});
+	// Кеш хостингу (LiteSpeed) тримав би відповіді застосунку тиждень: старі ціни, наявність і статуси замовлень.
+	add_filter('rest_post_dispatch', static function ($response, $server, $request) {
+		if (str_starts_with($request->get_route(), '/' . RAKY_NS)) {
+			do_action('litespeed_control_set_nocache', 'Raki Niko API');
+			$response->header('Cache-Control', 'no-store');
+		}
+		return $response;
+	}, 10, 3);
 
 	register_rest_route(RAKY_NS, '/config', [
 		'methods'             => 'GET',
