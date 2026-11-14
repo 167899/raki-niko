@@ -1,12 +1,11 @@
-import { Linking, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
+import { useContacts } from '../components/Overlays';
 import { Header, Heading, Paragraph, RowButton, shared } from '../components/ui';
 import { HOURS, PHONES } from '../content';
 import { prettyPhone } from '../format';
-import { useNav } from '../nav';
 
 export function HotlineScreen() {
-  const nav = useNav();
-  const stub = () => nav.showToast('Посилання буде додано');
+  const contacts = useContacts();
   return (
     <View style={shared.fill}>
       <Header title="Гаряча лінія" />
@@ -19,12 +18,12 @@ export function HotlineScreen() {
             icon="phone"
             label={prettyPhone(phone)}
             style={index === 0 ? { marginTop: 4 } : null}
-            onPress={() => Linking.openURL(`tel:${phone}`)}
+            onPress={() => contacts.call(phone)}
           />
         ))}
         <Heading>Написати нам</Heading>
-        <RowButton icon="message-circle" label="Viber" style={{ marginTop: 4 }} onPress={stub} />
-        <RowButton icon="brand-telegram" label="Telegram" onPress={stub} />
+        <RowButton icon="message-circle" label="Viber" style={{ marginTop: 4 }} onPress={contacts.viber} />
+        <RowButton icon="brand-telegram" label="Telegram" onPress={contacts.telegram} />
       </ScrollView>
     </View>
   );

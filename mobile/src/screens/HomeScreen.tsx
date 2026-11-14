@@ -5,6 +5,7 @@ import { BannerFace } from '../components/BannerFace';
 import { Badge, BottomBar, Button, Chip, Empty, Heart, Icon, IconButton, Input, Loading, Logo, ProductPicture, shared } from '../components/ui';
 import { unitPrice } from '../format';
 import { useNav } from '../nav';
+import { fuzzyMatch } from '../search';
 import { useShop } from '../shop';
 import { colors, gutter } from '../theme';
 
@@ -59,7 +60,14 @@ function Banners({ banners }: { banners: Banner[] }) {
           }}
         >
           {banners.map((banner) => (
-            <BannerFace key={banner.id} banner={banner} style={[styles.banner, { width }]} />
+            <Pressable
+              key={banner.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Акція: ${banner.title}`}
+              onPress={() => nav.go({ name: 'promos', bannerId: banner.id })}
+            >
+              <BannerFace banner={banner} style={[styles.banner, { width }]} />
+            </Pressable>
           ))}
         </ScrollView>
       </View>
@@ -119,10 +127,12 @@ export function HomeScreen() {
   const [category, setCategory] = useState<number | null>(null);
 
   const cards = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const names = new Map((catalog?.categories ?? []).map((item) => [item.id, item.name]));
     const found = (catalog?.products ?? []).filter(
       (product) =>
-        product.in_stock && (category === null || product.category_id === category) && product.name.toLowerCase().includes(query),
+        product.in_stock &&
+        (category === null || product.category_id === category) &&
+        fuzzyMatch(search, [product.name, product.group, names.get(product.category_id)].filter(Boolean).join(' ')),
     );
     return buildCards(found, category !== null);
   }, [catalog, search, category]);
@@ -155,8 +165,13 @@ export function HomeScreen() {
           value={search}
           onChangeText={setSearch}
           inset={34}
-          style={{ height: 36 }}
+          style={{ height: 36, paddingRight: search ? 30 : 0 }}
         />
+        {!!search && (
+          <Pressable accessibilityRole="button" accessibilityLabel="Очистити пошук" hitSlop={8} style={styles.searchClear} onPress={() => setSearch('')}>
+            <Icon name="x" size={18} color={colors.text} />
+          </Pressable>
+        )}
       </View>
       {!catalog ? (
         loadError ? (
@@ -169,9 +184,16 @@ export function HomeScreen() {
           <Loading />
         )
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {config?.banners_on !== false && <Banners banners={banners} />}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cats} keyboardShouldPersistTaps="handled">
+        // Категорії — другий дочірній елемент: під час прокрутки вони прилипають до верху.
+        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" stickyHeaderIndices={[1]}>
+          <View>{config?.banners_on !== false && <Banners banners={banners} />}</View>
+          <ScrollView
+            horizontal
+            style={styles.catsBar}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.cats}
+            keyboardShouldPersistTaps="handled"
+          >
             <Chip label="Усі" on={category === null} onPress={() => setCategory(null)} />
             {catalog.categories.map((item) => (
               <Chip key={item.id} label={item.name} on={item.id === category} onPress={() => setCategory(item.id)} />
@@ -199,13 +221,16 @@ const styles = StyleSheet.create({
   profile: { width: 'auto', flexDirection: 'row', gap: 1, paddingHorizontal: 2 },
   search: { paddingHorizontal: gutter, paddingBottom: 8 },
   searchIcon: { position: 'absolute', left: gutter + 10, top: 9, zIndex: 1 },
+  searchClear: { position: 'absolute', right: gutter + 8, top: 9, zIndex: 1 },
   bannerFrame: { borderRadius: 12, overflow: 'hidden' },
   banner: { height: 106 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 5, paddingVertical: 6 },
   dotHit: { width: 18, height: 18, alignItems: 'center', justifyContent: 'center' },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#AAAAAA' },
   dotOn: { backgroundColor: colors.red },
-  cats: { flexDirection: 'row', gap: 6, paddingHorizontal: gutter, paddingBottom: 8 },
+  // Фон потрібен, щоб під прилиплими категоріями не просвічували картки.
+  catsBar: { flexGrow: 0, backgroundColor: colors.white },
+  cats: { flexDirection: 'row', gap: 6, paddingHorizontal: gutter, paddingVertical: 4 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8, paddingHorizontal: gutter, paddingBottom: 10 },
   card: { width: '48.8%', borderWidth: 1, borderColor: colors.line, borderRadius: 12, overflow: 'hidden' },
   // Квадратне фото: висота дорівнює ширині картки.

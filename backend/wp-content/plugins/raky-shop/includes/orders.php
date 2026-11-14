@@ -60,7 +60,7 @@ function raky_resolve_lines($raw_items) {
 	foreach ($raw_items as $item) {
 		$product  = wc_get_product(absint($item['product_id'] ?? 0));
 		$quantity = (float) ($item['quantity'] ?? 0);
-		if (! $product || $product->get_status() !== 'publish') {
+		if (! $product || $product->get_status() !== 'publish' || raky_product_hidden($product)) {
 			return raky_error('raky_unknown_product', 'Товар більше не доступний. Оновіть кошик.', 409);
 		}
 		if (! $product->is_in_stock()) {

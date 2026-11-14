@@ -127,6 +127,7 @@ export const demoApi: Api = {
   news: async () => news,
   // У демо немає пошуку адрес: вартість доставки уточнює менеджер.
   quoteDelivery: async () => ({ found: false }),
+  referral: async () => ({ enabled: true, percent: config.referral.percent, code: 'RNDEMO', bonuses: [], friends: 0 }),
   checkPromo: async (code, items) => ({ code: code.trim().toUpperCase(), discount: discountFor(code, items) }),
   createOrder: async (order: NewOrder) => {
     const subtotal = subtotalOf(order.items) + addonsTotal(order.items);

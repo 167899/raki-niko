@@ -24,11 +24,12 @@ add_action('init', static function () {
 	]);
 });
 
-/** Текстові поля банера: підпис, опис, колір, промокод, період показу. */
+/** Текстові поля банера: підпис, короткий і повний опис, колір, промокод, період показу. */
 function raky_banner_fields(): array {
 	return [
 		'label'    => ['Підпис над заголовком', 'text'],
-		'subtitle' => ['Опис', 'text'],
+		'subtitle' => ['Короткий опис', 'text', 'Один рядок на самому банері на Головній.'],
+		'details'  => ['Повний опис', 'textarea', 'Умови акції в розділі «Акції». Якщо не заповнити, там буде короткий опис.'],
 		'color'    => ['Колір фону', 'color'],
 		'coupon'   => ['Промокод (необов\'язково)', 'text'],
 		'starts'   => ['Показувати з', 'date'],
@@ -38,7 +39,7 @@ function raky_banner_fields(): array {
 
 /** Які написи видно на банері: [ключ => підпис]. Без збереженого значення напис показується. */
 function raky_banner_texts(): array {
-	return ['title' => 'Назву', 'label' => 'Підпис над заголовком', 'subtitle' => 'Опис'];
+	return ['title' => 'Назву', 'label' => 'Підпис над заголовком', 'subtitle' => 'Короткий опис'];
 }
 
 function raky_banner_shows(int $post_id, string $key): bool {
@@ -140,17 +141,21 @@ add_action('add_meta_boxes_raky_banner', static function () {
 	add_meta_box('raky_banner_box', 'Параметри банера', static function (WP_Post $post) {
 		wp_nonce_field('raky_banner', 'raky_banner_nonce');
 		echo '<table class="form-table">';
-		foreach (raky_banner_fields() as $key => [$label, $type]) {
+		foreach (raky_banner_fields() as $key => $field) {
+			[$label, $type] = $field;
 			$value = (string) get_post_meta($post->ID, '_raky_' . $key, true);
 			if ($key === 'color' && $value === '') {
 				$value = '#D92B20';
 			}
+			$input = $type === 'textarea'
+				? sprintf('<textarea id="raky_%1$s" name="raky_%1$s" rows="5" class="large-text">%2$s</textarea>', esc_attr($key), esc_textarea($value))
+				: sprintf('<input id="raky_%1$s" name="raky_%1$s" type="%2$s" value="%3$s" class="regular-text">', esc_attr($key), esc_attr($type), esc_attr($value));
 			printf(
-				'<tr><th><label for="raky_%1$s">%2$s</label></th><td><input id="raky_%1$s" name="raky_%1$s" type="%3$s" value="%4$s" class="regular-text"></td></tr>',
+				'<tr><th><label for="raky_%1$s">%2$s</label></th><td>%3$s%4$s</td></tr>',
 				esc_attr($key),
 				esc_html($label),
-				esc_attr($type),
-				esc_attr($value)
+				$input, // phpcs:ignore WordPress.Security.EscapeOutput -- зібрано з екранованих частин вище
+				isset($field[2]) ? '<p class="description">' . esc_html($field[2]) . '</p>' : ''
 			);
 			if ($key === 'coupon') {
 				raky_banner_rules_row($value);
@@ -194,8 +199,9 @@ add_action('save_post_raky_banner', static function (int $post_id) {
 	if (! is_string($nonce) || ! wp_verify_nonce($nonce, 'raky_banner') || ! current_user_can('edit_post', $post_id)) {
 		return;
 	}
-	foreach (array_keys(raky_banner_fields()) as $key) {
-		$value = sanitize_text_field(wp_unslash((string) ($_POST['raky_' . $key] ?? '')));
+	foreach (raky_banner_fields() as $key => $field) {
+		$raw   = wp_unslash((string) ($_POST['raky_' . $key] ?? ''));
+		$value = $field[1] === 'textarea' ? sanitize_textarea_field($raw) : sanitize_text_field($raw);
 		update_post_meta($post_id, '_raky_' . $key, $value);
 	}
 	foreach (array_keys(raky_banner_texts()) as $key) {
@@ -262,6 +268,7 @@ function raky_rest_banners(): array {
 			'title'    => $post->post_title,
 			'label'    => (string) get_post_meta($post->ID, '_raky_label', true),
 			'subtitle' => (string) get_post_meta($post->ID, '_raky_subtitle', true),
+			'details'  => (string) get_post_meta($post->ID, '_raky_details', true),
 			'color'    => (string) get_post_meta($post->ID, '_raky_color', true),
 			'image'    => raky_public_url($image ?: null),
 			'code'     => $coupon === '' ? null : strtoupper($coupon),
@@ -320,6 +327,10 @@ function raky_coupon_discount(string $code, float $subtotal, string $phone) {
 	$coupon = new WC_Coupon($code);
 	if (! $coupon->get_id()) {
 		return raky_error('raky_bad_promo', 'Такого промокоду немає.', 422);
+	}
+	$referral = raky_ref_check($coupon, $phone);
+	if ($referral) {
+		return $referral;
 	}
 	$expires = $coupon->get_date_expires();
 	if ($expires && $expires->getTimestamp() < time()) {

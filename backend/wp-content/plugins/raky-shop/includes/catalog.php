@@ -11,6 +11,11 @@ function raky_product_unit(WC_Product $product): string {
 	return isset(raky_units()[$unit]) ? $unit : 'pcs';
 }
 
+/** Знятий з продажу товар лишається в адмінці, але застосунок його не показує й не продає. */
+function raky_product_hidden(WC_Product $product): bool {
+	return $product->get_meta(RAKY_META_HIDDEN) === 'yes';
+}
+
 /** Вагові одиниці: точну вагу й суму менеджер підтверджує перед оплатою. */
 function raky_unit_weighed(string $unit): bool {
 	return in_array($unit, ['g', 'kg', '100g'], true);
@@ -133,6 +138,9 @@ function raky_rest_catalog(): array {
 	$items    = [];
 	$term_ids = [];
 	foreach ($products as $product) {
+		if (raky_product_hidden($product)) {
+			continue;
+		}
 		[$category_id, $group] = raky_product_placement($product);
 		// Товари з «Без категорії» чекають на розподіл і клієнтам не показуються.
 		if (! $category_id || $category_id === raky_default_category()) {

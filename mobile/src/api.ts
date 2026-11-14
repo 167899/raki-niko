@@ -74,12 +74,25 @@ export type Banner = {
   id: number;
   title: string;
   label: string;
+  /** Короткий опис — на самому банері. */
   subtitle: string;
+  /** Повний опис — у розділі «Акції»; без нього там показується короткий. */
+  details?: string;
   color: string;
   image: string | null;
   code: string | null;
   /** Які написи видно на банері; старий сервер їх не надсилає — тоді всі. */
   show?: { title: boolean; label: boolean; subtitle: boolean };
+};
+
+/** Запрошення друзів: особистий код клієнта й бонуси, що ще не використані. */
+export type Referral = {
+  enabled: boolean;
+  percent: number;
+  code: string | null;
+  bonuses: { code: string; percent: number }[];
+  /** Скільки друзів уже принесли бонус. */
+  friends: number;
 };
 
 export type News = { id: number; title: string; text: string; date: string };
@@ -175,6 +188,8 @@ const liveApi = {
   checkPromo: (code: string, items: OrderItem[], phone: string) =>
     post<{ code: string; discount: number }>('/promo-check', { code, items, phone }),
   createOrder: (order: NewOrder) => post<Order>('/orders', order),
+  // Телефон у тілі запиту, а не в адресі.
+  referral: (phone: string) => post<Referral>('/referral', { phone }),
   order: (id: number, key: string) => request<Order>(`/orders/${id}&key=${encodeURIComponent(key)}`),
 };
 

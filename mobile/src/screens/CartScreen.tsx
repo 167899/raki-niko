@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AddonChip, BottomBar, Button, Empty, ErrorText, Header, Icon, Input, Paragraph, ProductPicture, shared, Warn } from '../components/ui';
 import { isWeighed, money, quantity } from '../format';
@@ -60,9 +60,20 @@ function CartRow({ line }: { line: ResolvedLine }) {
 
 export function CartScreen() {
   const nav = useNav();
-  const { lines, subtotal, promo, promoError, applyPromo, clearPromoMessage } = useShop();
+  const { lines, subtotal, promo, promoError, applyPromo, clearPromoMessage, referral, refreshReferral } = useShop();
   const [code, setCode] = useState(promo?.code ?? '');
   const [checking, setChecking] = useState(false);
+  const isBonus = !!promo && !!referral?.bonuses.some((bonus) => bonus.code === promo.code);
+
+  // Бонус за друга могли видати, поки застосунок був відкритий.
+  useEffect(() => {
+    refreshReferral();
+  }, [refreshReferral]);
+
+  // Промокод, підставлений автоматично, показуємо в полі.
+  useEffect(() => {
+    if (promo?.code) setCode(promo.code);
+  }, [promo?.code]);
 
   if (!lines.length) {
     return (
@@ -115,7 +126,9 @@ export function CartScreen() {
           </Pressable>
         </View>
         {!!promoError && <ErrorText>{promoError}</ErrorText>}
-        {!!promo && !promoError && <ErrorText color={colors.green}>Промокод застосовано</ErrorText>}
+        {!!promo && !promoError && (
+          <ErrorText color={colors.green}>{isBonus ? 'Бонус за запрошеного друга застосовано' : 'Промокод застосовано'}</ErrorText>
+        )}
         <View style={[shared.sum, { marginTop: 9, marginBottom: 3 }]}>
           <Text style={styles.small}>Доставка</Text>
           <Text style={styles.small}>при оформленні</Text>

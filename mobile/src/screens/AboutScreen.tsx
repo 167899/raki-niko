@@ -1,5 +1,5 @@
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SOCIALS } from '../components/Overlays';
+import { SocialIcons } from '../components/Overlays';
 import { Header, Heading, Icon, InfoRow, Logo, Paragraph, shared } from '../components/ui';
 import { HOURS, PHONES } from '../content';
 import { prettyPhone } from '../format';
@@ -37,11 +37,7 @@ export function AboutScreen() {
         </View>
         <Heading>Робочі години</Heading>
         <InfoRow left="Щодня" right={HOURS} />
-        <View style={styles.socials}>
-          {SOCIALS.map((icon) => (
-            <Icon key={icon} name={icon} size={24} color={colors.red} />
-          ))}
-        </View>
+        <SocialIcons size={24} style={styles.socials} />
       </ScrollView>
     </View>
   );

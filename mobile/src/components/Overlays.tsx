@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { PHONES } from '../content';
-import { fullPhone } from '../format';
+import { PHONES, TELEGRAM_URL, VIBER_URL } from '../content';
+import { fullPhone, prettyPhone } from '../format';
 import { IconName } from '../icons';
 import { Route, Tab, useNav } from '../nav';
 import { useShop } from '../shop';
@@ -25,7 +26,45 @@ const ITEMS: Item[] = [
 
 const TAB_ROUTES: Tab[] = ['home', 'cart', 'delivery'];
 
-export const SOCIALS: IconName[] = ['brand-instagram', 'brand-facebook', 'brand-tiktok', 'brand-telegram'];
+/** Соцмережі; без адреси іконка поки не натискається. */
+export const SOCIALS: { icon: IconName; label: string; url: string }[] = [
+  { icon: 'brand-instagram', label: 'Instagram', url: '' },
+  { icon: 'brand-facebook', label: 'Facebook', url: '' },
+  { icon: 'brand-tiktok', label: 'TikTok', url: '' },
+  { icon: 'brand-telegram', label: 'Telegram', url: TELEGRAM_URL },
+];
+
+/** Відкриває посилання або, поки його немає, підказує, що воно буде. */
+export function useContacts() {
+  const nav = useNav();
+  const open = (url: string) => {
+    if (url) Linking.openURL(url).catch(() => nav.showToast('Не вдалося відкрити посилання'));
+    else nav.showToast('Посилання буде додано');
+  };
+  return {
+    call: (phone: string) => open(`tel:${phone}`),
+    viber: () => open(VIBER_URL),
+    telegram: () => open(TELEGRAM_URL),
+    open,
+  };
+}
+
+export function SocialIcons({ size, style }: { size: number; style: object }) {
+  const contacts = useContacts();
+  return (
+    <View style={style}>
+      {SOCIALS.map((item) =>
+        item.url ? (
+          <Pressable key={item.icon} accessibilityRole="link" accessibilityLabel={item.label} hitSlop={6} onPress={() => contacts.open(item.url)}>
+            <Icon name={item.icon} size={size} color={colors.red} />
+          </Pressable>
+        ) : (
+          <Icon key={item.icon} name={item.icon} size={size} color={colors.red} />
+        ),
+      )}
+    </View>
+  );
+}
 
 function Menu() {
   const nav = useNav();
@@ -58,11 +97,7 @@ function Menu() {
             </Pressable>
           ))}
         </View>
-        <View style={styles.socials}>
-          {SOCIALS.map((icon) => (
-            <Icon key={icon} name={icon} size={22} color={colors.red} />
-          ))}
-        </View>
+        <SocialIcons size={22} style={styles.socials} />
       </ScrollView>
     </View>
   );
@@ -70,7 +105,8 @@ function Menu() {
 
 function Ask() {
   const nav = useNav();
-  const stub = () => nav.showToast('Посилання буде додано');
+  const contacts = useContacts();
+  const [phones, setPhones] = useState(false);
   return (
     <View style={styles.sheet}>
       <View style={shared.sum}>
@@ -79,9 +115,18 @@ function Ask() {
           <Icon name="x" />
         </IconButton>
       </View>
-      <RowButton icon="phone" label="Зателефонувати" onPress={() => Linking.openURL(`tel:${PHONES[0]}`)} />
-      <RowButton icon="message-circle" label="Написати у Viber" onPress={stub} />
-      <RowButton icon="brand-telegram" label="Написати в Telegram" onPress={stub} />
+      {phones ? (
+        <>
+          <Text style={styles.sheetHint}>Оберіть номер</Text>
+          {PHONES.map((phone) => (
+            <RowButton key={phone} icon="phone" label={prettyPhone(phone)} onPress={() => contacts.call(phone)} />
+          ))}
+        </>
+      ) : (
+        <RowButton icon="phone" label="Зателефонувати" onPress={() => setPhones(true)} />
+      )}
+      <RowButton icon="message-circle" label="Написати у Viber" onPress={contacts.viber} />
+      <RowButton icon="brand-telegram" label="Написати в Telegram" onPress={contacts.telegram} />
     </View>
   );
 }
@@ -115,4 +160,5 @@ const styles = StyleSheet.create({
   },
   sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.white, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 14 },
   sheetTitle: { fontSize: 17, fontWeight: '500', color: colors.ink },
+  sheetHint: { fontSize: 14, color: colors.text, marginBottom: 4 },
 });

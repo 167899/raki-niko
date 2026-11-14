@@ -1,6 +1,9 @@
 /** Дані компанії, які поки не редагуються в адмінці. */
 export const PHONES = ['+380936473902', '+380633001953', '+380633418905'];
 export const HOURS = '10:00–21:00';
+export const TELEGRAM_URL = 'https://t.me/rakiniko';
+/** Viber поки без посилання: доступ до акаунта відновлюємо. */
+export const VIBER_URL = '';
 
 /** Години, на які можна замовити приготування. */
 export const SLOT_FIRST_HOUR = 10;

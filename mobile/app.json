@@ -30,16 +30,22 @@
       "lang": "uk"
     },
     "scheme": "rakiniko",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
-    },
     "extra": {
       "eas": {
         "projectId": "aa4057dc-12c1-419e-b634-92ecec1a132b"
       }
     },
-    "owner": "oleksandr167899"
+    "owner": "oleksandr167899",
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF"
+        }
+      ]
+    ]
   }
 }

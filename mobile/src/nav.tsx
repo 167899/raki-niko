@@ -7,7 +7,7 @@ export type Route =
   | { name: 'cart' }
   | { name: 'favorites' }
   | { name: 'checkout' }
-  | { name: 'promos' }
+  | { name: 'promos'; bannerId?: number }
   | { name: 'delivery' }
   | { name: 'about' }
   | { name: 'orders' }

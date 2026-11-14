@@ -16,6 +16,7 @@ define('RAKY_META_CALIBER', '_raky_caliber');       // «середні»
 define('RAKY_META_CALIBER_HINT', '_raky_caliber_hint'); // «30–40 г»
 define('RAKY_META_PER_KG', '_raky_per_kg');         // приблизно штук у кілограмі
 define('RAKY_META_FLAVORS', '_raky_flavors');       // смаки: [[name, extra]], extra — доплата за одиницю товару
+define('RAKY_META_HIDDEN', '_raky_hidden');         // «Зняти з продажу»: 'yes' — товар не видно в застосунку
 define('RAKY_META_ADDONS', '_raky_addons');         // «Додатково»: [[name, price]], ціна за штуку (рукавички, пакет)
 
 require_once __DIR__ . '/includes/l10n.php';
@@ -28,6 +29,7 @@ require_once __DIR__ . '/includes/promotions.php';
 require_once __DIR__ . '/includes/customers.php';
 require_once __DIR__ . '/includes/sync.php';
 require_once __DIR__ . '/includes/skyservice.php';
+require_once __DIR__ . '/includes/referral.php';
 require_once __DIR__ . '/includes/telegram.php';
 require_once __DIR__ . '/includes/admin.php';
 
@@ -95,6 +97,11 @@ add_action('rest_api_init', static function () {
 		'methods'             => 'GET',
 		'permission_callback' => '__return_true',
 		'callback'            => 'raky_rest_news',
+	]);
+	register_rest_route(RAKY_NS, '/referral', [
+		'methods'             => 'POST',
+		'permission_callback' => '__return_true',
+		'callback'            => 'raky_rest_referral',
 	]);
 	register_rest_route(RAKY_NS, '/promo-check', [
 		'methods'             => 'POST',

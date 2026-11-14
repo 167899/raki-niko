@@ -1,4 +1,6 @@
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Overlays } from './src/components/Overlays';
@@ -18,7 +20,7 @@ import { OrdersScreen } from './src/screens/OrdersScreen';
 import { ProductScreen } from './src/screens/ProductScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PromosScreen } from './src/screens/PromosScreen';
-import { ShopProvider } from './src/shop';
+import { ShopProvider, useShop } from './src/shop';
 import { colors } from './src/theme';
 
 function Screen({ route }: { route: Route }) {
@@ -58,8 +60,20 @@ function Screen({ route }: { route: Route }) {
   }
 }
 
+// Заставка з раком тримається, доки не завантажиться меню, щоб не показувати порожній екран.
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
+SplashScreen.setOptions({ fade: true, duration: 300 });
+const SPLASH_MAX_MS = 6000;
+
 function Main() {
   const nav = useNav();
+  const { catalog, loadError } = useShop();
+  const ready = !!catalog || !!loadError;
+  useEffect(() => {
+    // Повільний інтернет не тримає заставку довше за SPLASH_MAX_MS: далі видно звичайне завантаження.
+    const timer = setTimeout(() => SplashScreen.hideAsync().catch(() => undefined), ready ? 0 : SPLASH_MAX_MS);
+    return () => clearTimeout(timer);
+  }, [ready]);
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar style="dark" />

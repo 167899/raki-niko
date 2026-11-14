@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AddonCounts, api, ApiError, Banner, Catalog, Config, News, Order, OrderItem, OrderStatusCode, Product } from './api';
+import { AddonCounts, api, ApiError, Banner, Catalog, Config, News, Order, OrderItem, OrderStatusCode, Product, Referral } from './api';
 import { phoneDigits } from './format';
 
 /** addons: «Додатково» до цього рядка, назва → штук. Старі записи кошика поля не мають. */
@@ -238,6 +238,45 @@ function useShopState() {
 
   const clearPromoMessage = useCallback(() => setPromoError(''), []);
 
+  // Запрошення друзів: особистий код і бонуси за друзів, чиї замовлення вже виконано.
+  const [referral, setReferral] = useState<Referral | null>(null);
+  const referralOn = config?.referral.enabled === true;
+  const refreshReferral = useCallback(async () => {
+    if (!user?.phone || !referralOn) {
+      setReferral(null);
+      return;
+    }
+    try {
+      setReferral(await api.referral(user.phone));
+    } catch {
+      // Немає зв'язку — лишаємо те, що вже показано.
+    }
+  }, [user?.phone, referralOn]);
+  useEffect(() => {
+    refreshReferral();
+  }, [refreshReferral]);
+
+  // Бонус сам підставляється в кошик один раз; якщо клієнт його прибере, не повертаємо.
+  const offeredBonuses = useRef(new Set<string>());
+  const bonus = referral?.bonuses[0]?.code;
+  // Перевіряємо тихо: якщо зараз не підходить (наприклад, мінімальна сума), спробуємо після зміни кошика.
+  useEffect(() => {
+    if (!bonus || promo || !orderItems.length || offeredBonuses.current.has(bonus)) return;
+    let current = true;
+    api
+      .checkPromo(bonus, orderItems, user?.phone ?? '')
+      .then((checked) => {
+        if (!current) return;
+        offeredBonuses.current.add(bonus);
+        setPromo(checked);
+        setPromoError('');
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [bonus, promo, orderItems, user?.phone]);
+
   const toggleFavorite = useCallback(
     (id: number) => setFavorites((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id])),
     [setFavorites],
@@ -360,6 +399,8 @@ function useShopState() {
     promoError,
     applyPromo,
     clearPromoMessage,
+    referral,
+    refreshReferral,
     favorites,
     toggleFavorite,
     orders,

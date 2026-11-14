@@ -41,6 +41,27 @@ add_action('woocommerce_product_options_general_product_data', static function (
 	echo '</div>';
 });
 
+// «Зняти з продажу» — у блоці «Опублікувати», поруч із кнопкою «Оновити».
+add_action('post_submitbox_misc_actions', static function (WP_Post $post) {
+	if ($post->post_type !== 'product') {
+		return;
+	}
+	$product = wc_get_product($post->ID);
+	printf(
+		'<div class="misc-pub-section"><label><input type="checkbox" name="raky_hidden" value="1"%s> <strong>Зняти з продажу</strong></label>'
+		. '<p class="description" style="margin:4px 0 0">Товар зникне із застосунку, але не видалиться. Зніміть позначку, щоб повернути його.</p></div>',
+		checked($product && raky_product_hidden($product), true, false)
+	);
+});
+
+// Позначка в списку товарів: «Назва — Знято з продажу».
+add_filter('display_post_states', static function (array $states, WP_Post $post): array {
+	if ($post->post_type === 'product' && ($product = wc_get_product($post)) && raky_product_hidden($product)) {
+		$states['raky_hidden'] = 'Знято з продажу';
+	}
+	return $states;
+}, 10, 2);
+
 /**
  * Позиції Skyservice товару: основна дає ціну й наявність, додаткові (рецепт) лише додають ціну.
  * Без підключення або при помилці каси поля стають прихованими й зберігають поточну прив'язку.
@@ -172,6 +193,7 @@ function raky_render_flavor_rows(): void {
 }
 
 add_action('woocommerce_admin_process_product_object', static function (WC_Product $product) {
+	$product->update_meta_data(RAKY_META_HIDDEN, empty($_POST['raky_hidden']) ? 'no' : 'yes');
 	$unit = sanitize_key(wp_unslash((string) ($_POST[RAKY_META_UNIT] ?? '')));
 	$product->update_meta_data(RAKY_META_UNIT, isset(raky_units()[$unit]) ? $unit : 'pcs');
 	// Лише цифри; основна позиція одна, додаткові без повтору основної.
@@ -237,15 +259,60 @@ add_action('wp_ajax_raky_delete_category', static function () {
 	wp_send_json_success();
 });
 
+/** Перейменування з олівця в дереві категорій товару. */
+add_action('wp_ajax_raky_rename_category', static function () {
+	check_ajax_referer('raky_edit_categories');
+	if (! current_user_can('edit_product_terms')) {
+		wp_send_json_error('Недостатньо прав.');
+	}
+	$term_id = absint($_POST['term_id'] ?? 0);
+	$name    = sanitize_text_field(wp_unslash((string) ($_POST['name'] ?? '')));
+	if ($name === '') {
+		wp_send_json_error('Назва не може бути порожньою.');
+	}
+	$result = wp_update_term($term_id, 'product_cat', ['name' => $name]);
+	if (is_wp_error($result)) {
+		wp_send_json_error($result->get_error_code() === 'duplicate_term_slug' ? 'Категорія з такою назвою вже є.' : 'Не вдалося перейменувати категорію.');
+	}
+	wp_send_json_success(['name' => get_term($term_id, 'product_cat')->name]);
+});
+
+/**
+ * Новий порядок категорій одного рівня після перетягування. Порядок зберігається там же, де його тримає WooCommerce
+ * (поле order), тож він той самий на сторінці «Категорії» і в застосунку.
+ */
+add_action('wp_ajax_raky_order_categories', static function () {
+	check_ajax_referer('raky_edit_categories');
+	if (! current_user_can('manage_product_terms')) {
+		wp_send_json_error('Недостатньо прав.');
+	}
+	$ids = array_values(array_filter(array_map('absint', (array) ($_POST['ids'] ?? []))));
+	foreach ($ids as $index => $term_id) {
+		if (term_exists($term_id, 'product_cat')) {
+			update_term_meta($term_id, 'order', $index + 1);
+		}
+	}
+	wp_send_json_success();
+});
+
+// У товарі дерево категорій лишається в справжньому порядку: позначені не підстрибують нагору.
+add_filter('wp_terms_checklist_args', static function (array $args): array {
+	if (($args['taxonomy'] ?? '') === 'product_cat') {
+		$args['checked_ontop'] = false;
+	}
+	return $args;
+});
+
 add_action('admin_enqueue_scripts', static function () {
 	$screen = get_current_screen();
 	if (! $screen || $screen->id !== 'product') {
 		return;
 	}
-	wp_enqueue_script('raky-admin-categories', plugins_url('assets/admin-categories.js', __DIR__), ['jquery'], '0.2.0', true);
+	wp_enqueue_script('raky-admin-categories', plugins_url('assets/admin-categories.js', __DIR__), ['jquery', 'jquery-ui-sortable'], '0.3.1', true);
 	wp_localize_script('raky-admin-categories', 'rakyCategories', [
 		'defaultCategory' => (string) raky_default_category(),
 		'deleteNonce'     => wp_create_nonce('raky_delete_category'),
+		'editNonce'       => wp_create_nonce('raky_edit_categories'),
 	]);
 });
 
@@ -334,6 +401,9 @@ function raky_render_settings_page(): void {
 			<h2>Реферальна програма</h2>
 			<p><label><input type="checkbox" name="referral_on" value="1" <?php checked($settings['referral_on']); ?>> Увімкнути запрошення друзів</label></p>
 			<p><label>Разова знижка кожному учаснику, %: <input type="number" name="referral_pct" min="0" max="100" step="0.5" value="<?php echo esc_attr((string) $settings['referral_pct']); ?>"></label></p>
+			<p class="description">Кожен клієнт бачить у застосунку свій код. Друг вводить його в кошику на першому замовленні й отримує знижку.
+				Коли замовлення друга стає «Виконано», власник коду отримує одноразовий бонус на наступне замовлення: застосунок сам підставить його в кошик.
+				Скасоване замовлення бонусу не дає. Коди й бонуси видно в «Маркетинг → Купони» (починаються з RN і BONUS).</p>
 			<h2>Точки (JSON)</h2>
 			<textarea name="outlets" rows="12" class="large-text code"><?php echo esc_textarea(wp_json_encode($settings['outlets'], $json)); ?></textarea>
 			<h2>Зони доставки (JSON)</h2>
