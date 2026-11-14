@@ -42,13 +42,36 @@ function raky_banner_texts(): array {
 	return ['title' => 'Назву', 'label' => 'Підпис над заголовком', 'subtitle' => 'Короткий опис'];
 }
 
-function raky_banner_shows(int $post_id, string $key): bool {
-	return get_post_meta($post_id, '_raky_show_' . $key, true) !== '0';
+/**
+ * У застосунку й на сайті банер налаштовується окремо: свої написи, фон і картинка.
+ * Поки для сайту нічого не збережено, він бере налаштування застосунку.
+ */
+const RAKY_BANNER_TARGETS = ['app' => 'Застосунок', 'site' => 'Сайт'];
+
+function raky_banner_meta(string $target, string $key): string {
+	return ($target === 'site' ? '_raky_site_' : '_raky_') . $key;
+}
+
+function raky_banner_shows(int $post_id, string $key, string $target = 'app'): bool {
+	$value = (string) get_post_meta($post_id, raky_banner_meta($target, 'show_' . $key), true);
+	if ($value === '' && $target === 'site') {
+		return raky_banner_shows($post_id, $key);
+	}
+	return $value !== '0';
+}
+
+/** ID картинки: у застосунку — «Зображення запису», на сайті — своє поле (або те саме, поки своє не обрано). */
+function raky_banner_image_id(int $post_id, string $target = 'app'): int {
+	$own = $target === 'site' ? (int) get_post_meta($post_id, '_raky_site_image', true) : 0;
+	return $own > 0 && wp_attachment_is_image($own) ? $own : (int) get_post_thumbnail_id($post_id);
 }
 
 /** Фон банера: 'color' або 'image'. Старі банери з картинкою лишаються з картинкою. */
-function raky_banner_background(int $post_id): string {
-	$background = (string) get_post_meta($post_id, '_raky_background', true);
+function raky_banner_background(int $post_id, string $target = 'app'): string {
+	$background = (string) get_post_meta($post_id, raky_banner_meta($target, 'background'), true);
+	if ($background === '' && $target === 'site') {
+		return raky_banner_background($post_id);
+	}
 	if ($background === '') {
 		return has_post_thumbnail($post_id) ? 'image' : 'color';
 	}
@@ -162,36 +185,101 @@ add_action('add_meta_boxes_raky_banner', static function () {
 			}
 		}
 
-		echo '<tr><th>Показувати на банері</th><td><fieldset>';
-		foreach (raky_banner_texts() as $key => $label) {
-			printf(
-				'<label style="display:block;margin-bottom:6px"><input type="checkbox" name="raky_show_%1$s" value="1"%2$s> %3$s</label>',
-				esc_attr($key),
-				checked(raky_banner_shows($post->ID, $key), true, false),
-				esc_html($label)
-			);
+		echo '</table>';
+		foreach (RAKY_BANNER_TARGETS as $target => $name) {
+			raky_banner_target_box($post, $target, $name);
 		}
-		echo '<p class="description">Зніміть позначки, якщо текст уже є на картинці. Діє на Головній і в розділі «Акції».</p></fieldset></td></tr>';
+		echo '<p>Банер показується на Головній і в розділі «Акції» — у застосунку й на сайті.</p>';
+	});
+});
 
-		$background = raky_banner_background($post->ID);
-		echo '<tr><th>Фон банера</th><td><fieldset>';
-		foreach (['color' => 'Колір фону', 'image' => 'Картинка'] as $value => $label) {
-			printf(
-				'<label style="display:block;margin-bottom:6px"><input type="radio" name="raky_background" value="%1$s"%2$s> %3$s</label>',
-				esc_attr($value),
-				checked($background, $value, false),
-				esc_html($label)
-			);
-		}
+/** Написи й фон банера для застосунку або сайту. */
+function raky_banner_target_box(WP_Post $post, string $target, string $name): void {
+	printf('<h3 style="margin:18px 0 0;padding-top:12px;border-top:1px solid #dcdcde">%s</h3><table class="form-table">', esc_html($name));
+	echo '<tr><th>Показувати на банері</th><td><fieldset>';
+	foreach (raky_banner_texts() as $key => $label) {
 		printf(
-			'<p class="description">Картинку завантажте в блоці «Зображення запису» праворуч. Розмір %s, JPG або PNG до 500 КБ. '
+			'<label style="display:block;margin-bottom:6px"><input type="checkbox" name="raky_%1$s_show_%2$s" value="1"%3$s> %4$s</label>',
+			esc_attr($target),
+			esc_attr($key),
+			checked(raky_banner_shows($post->ID, $key, $target), true, false),
+			esc_html($label)
+		);
+	}
+	echo '<p class="description">Зніміть позначки, якщо текст уже є на картинці. Діє на Головній і в розділі «Акції».</p></fieldset></td></tr>';
+
+	$background = raky_banner_background($post->ID, $target);
+	echo '<tr><th>Фон банера</th><td><fieldset>';
+	foreach (['color' => 'Колір фону', 'image' => 'Картинка'] as $value => $label) {
+		printf(
+			'<label style="display:block;margin-bottom:6px"><input type="radio" name="raky_%1$s_background" value="%2$s"%3$s> %4$s</label>',
+			esc_attr($target),
+			esc_attr($value),
+			checked($background, $value, false),
+			esc_html($label)
+		);
+	}
+	if ($target === 'app') {
+		printf(
+			'<p class="description">Картинку для застосунку завантажте в блоці «Зображення запису» праворуч. Розмір %s, JPG або PNG до 500 КБ. '
 			. 'На різних телефонах краї до 50 пікселів можуть обрізатися, тож текст і головне на картинці тримайте ближче до центру. '
 			. 'Поки картинку не завантажено, банер показується з кольором фону.</p>',
 			esc_html(RAKY_BANNER_IMAGE)
 		);
-		echo '</fieldset></td></tr>';
-		echo '</table><p>Банер показується на Головній і в розділі Акції.</p>';
+	} else {
+		$own = (int) get_post_meta($post->ID, '_raky_site_image', true);
+		$own = $own > 0 && wp_attachment_is_image($own) ? $own : 0;
+		printf(
+			'<div class="raky-site-image" style="margin:4px 0 8px">'
+			. '<input type="hidden" name="raky_site_image" value="%1$s">'
+			. '<div class="raky-site-image__preview" style="max-width:420px;margin-bottom:6px">%2$s</div>'
+			. '<button type="button" class="button raky-site-image__pick">%3$s</button> '
+			. '<button type="button" class="button-link raky-site-image__clear"%4$s>Прибрати</button></div>',
+			esc_attr((string) $own),
+			$own ? wp_get_attachment_image($own, 'medium', false, ['style' => 'width:100%;height:auto;border-radius:8px']) : '', // phpcs:ignore WordPress.Security.EscapeOutput
+			$own ? 'Замінити картинку для сайту' : 'Обрати картинку для сайту',
+			$own ? '' : ' hidden'
+		);
+		echo '<p class="description">Розмір від 1200×340 пікселів, краще 2400×680 для великих екранів — пропорції ті самі. '
+			. 'Поки своєї картинки немає, сайт показує картинку застосунку.</p>';
+	}
+	echo '</fieldset></td></tr></table>';
+}
+
+// Вибір картинки для сайту з медіабібліотеки.
+add_action('admin_enqueue_scripts', static function () {
+	$screen = get_current_screen();
+	if (! $screen || $screen->id !== 'raky_banner') {
+		return;
+	}
+	wp_enqueue_media();
+	wp_add_inline_script('media-editor', <<<'JS'
+jQuery(function ($) {
+	var box = $('.raky-site-image');
+	if (!box.length) return;
+	var frame;
+	box.on('click', '.raky-site-image__pick', function () {
+		frame = frame || wp.media({ title: 'Картинка банера для сайту', button: { text: 'Обрати' }, library: { type: 'image' }, multiple: false });
+		frame.off('select').on('select', function () {
+			var image = frame.state().get('selection').first().toJSON();
+			var url = (image.sizes && image.sizes.medium_large ? image.sizes.medium_large : image).url;
+			box.find('input').val(image.id);
+			box.find('.raky-site-image__preview').html($('<img>', { src: url, alt: '' }).css({ width: '100%', height: 'auto', borderRadius: '8px' }));
+			box.find('.raky-site-image__pick').text('Замінити картинку для сайту');
+			box.find('.raky-site-image__clear').prop('hidden', false);
+			$('input[name="raky_site_background"][value="image"]').prop('checked', true);
+		});
+		frame.open();
 	});
+	box.on('click', '.raky-site-image__clear', function () {
+		box.find('input').val('');
+		box.find('.raky-site-image__preview').empty();
+		box.find('.raky-site-image__pick').text('Обрати картинку для сайту');
+		$(this).prop('hidden', true);
+	});
+});
+JS
+	);
 });
 
 add_action('save_post_raky_banner', static function (int $post_id) {
@@ -204,10 +292,15 @@ add_action('save_post_raky_banner', static function (int $post_id) {
 		$value = $field[1] === 'textarea' ? sanitize_textarea_field($raw) : sanitize_text_field($raw);
 		update_post_meta($post_id, '_raky_' . $key, $value);
 	}
-	foreach (array_keys(raky_banner_texts()) as $key) {
-		update_post_meta($post_id, '_raky_show_' . $key, empty($_POST['raky_show_' . $key]) ? '0' : '1');
+	foreach (array_keys(RAKY_BANNER_TARGETS) as $target) {
+		foreach (array_keys(raky_banner_texts()) as $key) {
+			update_post_meta($post_id, raky_banner_meta($target, 'show_' . $key), empty($_POST['raky_' . $target . '_show_' . $key]) ? '0' : '1');
+		}
+		$background = ($_POST['raky_' . $target . '_background'] ?? '') === 'image' ? 'image' : 'color';
+		update_post_meta($post_id, raky_banner_meta($target, 'background'), $background);
 	}
-	update_post_meta($post_id, '_raky_background', ($_POST['raky_background'] ?? '') === 'image' ? 'image' : 'color');
+	$site_image = absint($_POST['raky_site_image'] ?? 0);
+	update_post_meta($post_id, '_raky_site_image', $site_image && wp_attachment_is_image($site_image) ? $site_image : '');
 	raky_banner_save_rules((string) get_post_meta($post_id, '_raky_coupon', true));
 });
 
@@ -254,6 +347,11 @@ function raky_banner_is_live(int $post_id, string $today): bool {
 }
 
 function raky_rest_banners(): array {
+	return raky_banners_for('app');
+}
+
+/** Банери для застосунку ('app', REST) або сайту ('site', тема raky-site): у кожного свої картинка й написи. */
+function raky_banners_for(string $target): array {
 	$today = wp_date('Y-m-d');
 	$posts = get_posts(['post_type' => 'raky_banner', 'post_status' => 'publish', 'numberposts' => -1, 'orderby' => 'menu_order date', 'order' => 'ASC']);
 	$out   = [];
@@ -262,7 +360,8 @@ function raky_rest_banners(): array {
 			continue;
 		}
 		$coupon = (string) get_post_meta($post->ID, '_raky_coupon', true);
-		$image  = raky_banner_background($post->ID) === 'image' ? get_the_post_thumbnail_url($post, 'full') : null;
+		$image_id = raky_banner_background($post->ID, $target) === 'image' ? raky_banner_image_id($post->ID, $target) : 0;
+		$image    = $image_id ? wp_get_attachment_image_url($image_id, 'full') : null;
 		$out[]  = [
 			'id'       => $post->ID,
 			'title'    => $post->post_title,
@@ -273,7 +372,7 @@ function raky_rest_banners(): array {
 			'image'    => raky_public_url($image ?: null),
 			'code'     => $coupon === '' ? null : strtoupper($coupon),
 			// Написи на самому банері, на Головній і в «Акціях».
-			'show'     => array_map(static fn (string $key) => raky_banner_shows($post->ID, $key), array_combine(array_keys(raky_banner_texts()), array_keys(raky_banner_texts()))),
+			'show'     => array_map(static fn (string $key) => raky_banner_shows($post->ID, $key, $target), array_combine(array_keys(raky_banner_texts()), array_keys(raky_banner_texts()))),
 		];
 	}
 	return $out;

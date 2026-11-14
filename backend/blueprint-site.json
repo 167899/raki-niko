@@ -1,0 +1,61 @@
+{
+  "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+  "preferredVersions": {
+    "php": "8.3",
+    "wp": "latest"
+  },
+  "steps": [
+    {
+      "step": "setSiteLanguage",
+      "language": "uk"
+    },
+    {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "vfs",
+        "path": "/wordpress/wp-content/raky-cache/woocommerce.zip"
+      },
+      "options": {
+        "activate": true
+      }
+    },
+    {
+      "step": "unzip",
+      "zipFile": {
+        "resource": "vfs",
+        "path": "/wordpress/wp-content/raky-cache/woocommerce-uk.zip"
+      },
+      "extractToPath": "/wordpress/wp-content/languages/plugins"
+    },
+    {
+      "step": "activatePlugin",
+      "pluginPath": "raky-shop/raky-shop.php"
+    },
+    {
+      "step": "runPHP",
+      "code": "<?php require '/wordpress/wp-content/plugins/raky-shop/tools/seed-demo.php';"
+    },
+    {
+      "step": "activatePlugin",
+      "pluginPath": "raky-latin-slugs/raky-latin-slugs.php"
+    },
+    {
+      "step": "activateTheme",
+      "themeFolderName": "raky-site"
+    },
+    {
+      "step": "setSiteOptions",
+      "options": {
+        "permalink_structure": "/%postname%/",
+        "woocommerce_permalinks": {
+          "product_base": "/tovar",
+          "category_base": "katalog",
+          "tag_base": "mitka",
+          "attribute_base": "",
+          "use_verbose_page_rules": false
+        },
+        "blogname": "Raki Niko"
+      }
+    }
+  ]
+}

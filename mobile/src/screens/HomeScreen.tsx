@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutChangeEvent, Pressable, ScrollView, ScrollViewInstance, StyleSheet, Text, View } from 'react-native';
+import { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, ScrollViewInstance, StyleSheet, Text, View } from 'react-native';
 import { Banner, Product } from '../api';
 import { BannerFace } from '../components/BannerFace';
 import { Badge, BottomBar, Button, Chip, Empty, Heart, Icon, IconButton, Input, Loading, Logo, ProductPicture, shared } from '../components/ui';
@@ -85,9 +85,8 @@ function Banners({ banners }: { banners: Banner[] }) {
 /** Картка веде на товар; для підкатегорії це найдешевший калібр, інші обираються в товарі. */
 type Card = { product: Product; title: string; fromPrice: boolean };
 
-/** Усі: кожен товар окремо. Категорія: одна картка на підкатегорію. */
-function buildCards(products: Product[], grouped: boolean): Card[] {
-  if (!grouped) return products.map((product) => ({ product, title: product.name, fromPrice: false }));
+/** Одна картка на підкатегорію, як на сайті. */
+function buildCards(products: Product[]): Card[] {
   const groups = new Map<string, Product[]>();
   for (const product of products) {
     const key = product.group || `product-${product.id}`;
@@ -114,34 +113,89 @@ function ProductCard({ card: { product, title, fromPrice } }: { card: Card }) {
           {fromPrice ? 'від ' : ''}
           {unitPrice(product.price, product.unit)}
         </Text>
-        <Button size="sm" title="Обрати" onPress={() => nav.go({ name: 'product', productId: product.id })} />
+        <Button size="sm" title="Обрати" style={styles.cardButton} onPress={() => nav.go({ name: 'product', productId: product.id })} />
       </View>
     </View>
   );
 }
 
+/** Меню як на сайті: усі категорії підряд, стрічка категорій гортає до розділу й підсвічує той, що зараз видно. */
+type Section = { id: number; name: string; cards: Card[] };
+const JUMP_LOCK_MS = 700;
+
 export function HomeScreen() {
   const nav = useNav();
   const { catalog, config, banners, favorites, unread, loadError, reload } = useShop();
   const [search, setSearch] = useState('');
-  const [category, setCategory] = useState<number | null>(null);
+  const [active, setActive] = useState<number | null>(null);
+  const page = useRef<ScrollViewInstance>(null);
+  const strip = useRef<ScrollViewInstance>(null);
+  const stripWidth = useRef(0);
+  const barHeight = useRef(0);
+  const sectionY = useRef<Record<number, number>>({});
+  const chipX = useRef<Record<string, { x: number; width: number }>>({});
+  const jumping = useRef(0);
 
-  const cards = useMemo(() => {
-    const names = new Map((catalog?.categories ?? []).map((item) => [item.id, item.name]));
-    const found = (catalog?.products ?? []).filter(
-      (product) =>
-        product.in_stock &&
-        (category === null || product.category_id === category) &&
-        fuzzyMatch(search, [product.name, product.group, names.get(product.category_id)].filter(Boolean).join(' ')),
-    );
-    return buildCards(found, category !== null);
-  }, [catalog, search, category]);
+  const sections = useMemo<Section[]>(() => {
+    const products = (catalog?.products ?? []).filter((product) => product.in_stock);
+    return (catalog?.categories ?? []).flatMap((category) => {
+      const found = products.filter(
+        (product) => product.category_id === category.id && fuzzyMatch(search, [product.name, product.group, category.name].filter(Boolean).join(' ')),
+      );
+      return found.length ? [{ id: category.id, name: category.name, cards: buildCards(found) }] : [];
+    });
+  }, [catalog, search]);
+
+  // Активна категорія завжди видна в стрічці: стрічка сама гортається вліво чи вправо.
+  const highlight = (id: number | null) => {
+    setActive((current) => {
+      if (current !== id) {
+        const chip = chipX.current[String(id ?? 'all')];
+        if (chip) strip.current?.scrollTo({ x: Math.max(0, chip.x - (stripWidth.current - chip.width) / 2), animated: true });
+      }
+      return id;
+    });
+  };
+
+  const jump = (id: number | null) => {
+    jumping.current = Date.now();
+    highlight(id);
+    const y = id === null ? 0 : (sectionY.current[id] ?? 0) - barHeight.current;
+    page.current?.scrollTo({ y: Math.max(0, y), animated: true });
+  };
+
+  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (Date.now() - jumping.current < JUMP_LOCK_MS) return;
+    const y = event.nativeEvent.contentOffset.y;
+    if (y < 40) return highlight(null);
+    // Поточний розділ — останній, чий заголовок уже під стрічкою категорій (з запасом у третину екрана).
+    const line = y + barHeight.current + event.nativeEvent.layoutMeasurement.height * 0.3;
+    let current: number | null = null;
+    for (const section of sections) {
+      if ((sectionY.current[section.id] ?? Infinity) <= line) current = section.id;
+    }
+    highlight(current);
+  };
+
+  const chip = (key: string, label: string, id: number | null) => (
+    <View
+      key={key}
+      onLayout={(event: LayoutChangeEvent) => {
+        chipX.current[key] = { x: event.nativeEvent.layout.x, width: event.nativeEvent.layout.width };
+      }}
+    >
+      <Chip label={label} on={active === id} onPress={() => jump(id)} />
+    </View>
+  );
 
   return (
     <View style={shared.fill}>
       <View style={styles.top}>
         <Logo width={30} height={36} />
         <Text style={styles.brand}>Raki Niko</Text>
+        <IconButton label="Мої замовлення" onPress={() => nav.go({ name: 'orders' })}>
+          <Icon name="receipt" />
+        </IconButton>
         <IconButton label="Улюблене" onPress={() => nav.go({ name: 'favorites' })}>
           <Icon name="heart" />
           <Badge count={favorites.length} />
@@ -185,29 +239,56 @@ export function HomeScreen() {
         )
       ) : (
         // Категорії — другий дочірній елемент: під час прокрутки вони прилипають до верху.
-        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" stickyHeaderIndices={[1]}>
+        // Розділи — прямі дочірні елементи, тож їхні y з onLayout рахуються від початку списку.
+        <ScrollView
+          ref={page}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          stickyHeaderIndices={[1]}
+          scrollEventThrottle={64}
+          onScroll={onScroll}
+        >
           <View>{config?.banners_on !== false && <Banners banners={banners} />}</View>
-          <ScrollView
-            horizontal
+          <View
             style={styles.catsBar}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.cats}
-            keyboardShouldPersistTaps="handled"
+            onLayout={(event: LayoutChangeEvent) => {
+              barHeight.current = event.nativeEvent.layout.height;
+            }}
           >
-            <Chip label="Усі" on={category === null} onPress={() => setCategory(null)} />
-            {catalog.categories.map((item) => (
-              <Chip key={item.id} label={item.name} on={item.id === category} onPress={() => setCategory(item.id)} />
-            ))}
-          </ScrollView>
-          {cards.length ? (
-            <View style={styles.grid}>
-              {cards.map((card) => (
-                <ProductCard key={card.product.id} card={card} />
-              ))}
+            <ScrollView
+              ref={strip}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.cats}
+              keyboardShouldPersistTaps="handled"
+              onLayout={(event: LayoutChangeEvent) => {
+                stripWidth.current = event.nativeEvent.layout.width;
+              }}
+            >
+              {chip('all', 'Усі', null)}
+              {sections.map((section) => chip(String(section.id), section.name, section.id))}
+            </ScrollView>
+          </View>
+          {sections.map((section) => (
+            <View
+              key={section.id}
+              style={styles.section}
+              onLayout={(event: LayoutChangeEvent) => {
+                sectionY.current[section.id] = event.nativeEvent.layout.y;
+              }}
+            >
+              <Text accessibilityRole="header" style={styles.sectionTitle}>
+                {section.name}
+              </Text>
+              <View style={styles.grid}>
+                {section.cards.map((card) => (
+                  <ProductCard key={card.product.id} card={card} />
+                ))}
+              </View>
             </View>
-          ) : (
-            <Text style={styles.nothing}>Нічого не знайдено</Text>
-          )}
+          ))}
+          {!sections.length && <Text style={styles.nothing}>Нічого не знайдено</Text>}
+          <View style={{ height: 10 }} />
         </ScrollView>
       )}
       <BottomBar active="home" />
@@ -231,12 +312,16 @@ const styles = StyleSheet.create({
   // Фон потрібен, щоб під прилиплими категоріями не просвічували картки.
   catsBar: { flexGrow: 0, backgroundColor: colors.white },
   cats: { flexDirection: 'row', gap: 6, paddingHorizontal: gutter, paddingVertical: 4 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8, paddingHorizontal: gutter, paddingBottom: 10 },
+  section: { paddingTop: 6 },
+  sectionTitle: { fontSize: 18, fontWeight: '500', color: colors.ink, paddingHorizontal: gutter, marginBottom: 8 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8, paddingHorizontal: gutter, paddingBottom: 6 },
   card: { width: '48.8%', borderWidth: 1, borderColor: colors.line, borderRadius: 12, overflow: 'hidden' },
   // Квадратне фото: висота дорівнює ширині картки.
   pic: { aspectRatio: 1 },
   cardHeart: { position: 'absolute', zIndex: 1, top: 3, right: 3 },
-  cardBody: { paddingTop: 7, paddingHorizontal: 8, paddingBottom: 8 },
+  // Картки в ряду однакової висоти, а «Обрати» притиснута до низу картки.
+  cardBody: { flex: 1, paddingTop: 7, paddingHorizontal: 8, paddingBottom: 8 },
+  cardButton: { marginTop: 'auto' },
   // Місце під два рядки назви: тоді фото в сусідніх картках однакові.
   cardName: { minHeight: 36, fontSize: 14, lineHeight: 18, fontWeight: '600', color: colors.ink },
   cardPrice: { fontSize: 15, fontWeight: '500', color: colors.ink, marginTop: 3, marginBottom: 5 },

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { TelegramLogin } from '../components/TelegramLogin';
 import { Button, Field, Header, Icon, Logo, Paragraph, shared } from '../components/ui';
 import { validPhone } from '../format';
 import { useNav } from '../nav';
@@ -87,6 +88,14 @@ export function LoginScreen() {
           <Text style={styles.orText}>або</Text>
           <View style={styles.orLine} />
         </View>
+        <TelegramLogin
+          label="Увійти через Telegram"
+          onDone={() => {
+            nav.back();
+            nav.showToast('Номер підтверджено');
+          }}
+        />
+        <Text style={styles.tgHint}>Через Telegram ви побачите всі свої замовлення — і з застосунку, і з сайту.</Text>
         <Pressable accessibilityRole="button" style={styles.social} onPress={() => social('Google')}>
           <Icon name="brand-google" size={18} />
           <Text style={styles.socialText}>Увійти через Google</Text>
@@ -149,4 +158,5 @@ const styles = StyleSheet.create({
   link: { fontSize: 15, color: colors.red },
   fine: { fontSize: 14, lineHeight: 19, color: colors.text, textAlign: 'center', marginTop: 12 },
   fineLink: { color: colors.red },
+  tgHint: { fontSize: 13, lineHeight: 18, color: colors.text, textAlign: 'center', marginTop: 6 },
 });

@@ -1,13 +1,14 @@
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SocialIcons } from '../components/Overlays';
+import { SocialIcons, useContacts } from '../components/Overlays';
 import { Header, Heading, Icon, InfoRow, Logo, Paragraph, shared } from '../components/ui';
-import { HOURS, PHONES } from '../content';
+import { HOURS } from '../content';
 import { prettyPhone } from '../format';
 import { useShop } from '../shop';
 import { colors } from '../theme';
 
 export function AboutScreen() {
   const { config } = useShop();
+  const { phones } = useContacts();
   return (
     <View style={shared.fill}>
       <Header title="Про компанію" />
@@ -19,7 +20,7 @@ export function AboutScreen() {
         <Paragraph>Raki Niko продає раків у Миколаєві.</Paragraph>
         <Heading>Телефони</Heading>
         <View style={styles.box}>
-          {PHONES.map((phone) => (
+          {phones.map((phone) => (
             <Pressable key={phone} accessibilityRole="link" style={styles.contact} onPress={() => Linking.openURL(`tel:${phone}`)}>
               <Icon name="phone" size={18} color={colors.red} />
               <Text style={styles.contactText}>{prettyPhone(phone)}</Text>

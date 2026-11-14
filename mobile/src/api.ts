@@ -60,9 +60,15 @@ export type Zone = {
   polygon: [number, number][];
 };
 
+export type SocialNetwork = 'telegram' | 'viber' | 'instagram' | 'facebook' | 'tiktok';
+export type Social = { network: SocialNetwork; label: string; url: string };
+
 export type Config = {
   currency: string;
   support_phone: string;
+  /** Телефони й соцмережі зі сторінки «Сайт» в адмінці; старий сервер їх не надсилає. */
+  phones?: string[];
+  socials?: Social[];
   referral: { enabled: boolean; percent: number };
   /** Блок банерів на Головній; без значення показується. */
   banners_on?: boolean;
@@ -116,6 +122,8 @@ export type Order = {
   status: { code: OrderStatusCode; label: string };
   created_at: string | null;
   items: {
+    /** Немає в старих відповідях сервера; 0 — товар видалено. */
+    product_id?: number;
     name: string;
     quantity: number;
     unit: Unit;
@@ -172,12 +180,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-const post = <T,>(path: string, body: unknown) =>
+const post = <T,>(path: string, body: unknown, headers: Record<string, string> = {}) =>
   request<T>(path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(body),
   });
+
+/** Вхід через Telegram: клієнт підтверджує номер у боті магазину, після цього видно всі його замовлення (і з сайту). */
+export type AuthStart = { token: string; url: string; expires_in: number };
+export type AuthStatus = { status: 'pending' } | { status: 'confirmed'; session: string; phone: string; name: string };
+export type MyFavorites = { ids: number[] };
+export type MyOrders = { phone: string; orders: Order[] };
+const SESSION_HEADER = 'X-Raky-Session';
 
 const liveApi = {
   catalog: () => request<Catalog>('/catalog'),
@@ -191,6 +206,12 @@ const liveApi = {
   // Телефон у тілі запиту, а не в адресі.
   referral: (phone: string) => post<Referral>('/referral', { phone }),
   order: (id: number, key: string) => request<Order>(`/orders/${id}&key=${encodeURIComponent(key)}`),
+  authStart: () => post<AuthStart>('/auth/telegram', {}),
+  authStatus: (token: string) => request<AuthStatus>(`/auth/telegram/${encodeURIComponent(token)}`),
+  myOrders: (session: string) => request<MyOrders>('/me/orders', { headers: { [SESSION_HEADER]: session } }),
+  favorites: (session: string) => request<MyFavorites>('/me/favorites', { headers: { [SESSION_HEADER]: session } }),
+  saveFavorites: (session: string, ids: number[]) => post<MyFavorites>('/me/favorites', { ids }, { [SESSION_HEADER]: session }),
+  logout: (session: string) => post<{ ok: boolean }>('/auth/logout', {}, { [SESSION_HEADER]: session }),
 };
 
 export type Api = typeof liveApi;

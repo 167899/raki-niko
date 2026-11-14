@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PHONES, TELEGRAM_URL, VIBER_URL } from '../content';
+import { Social } from '../api';
 import { fullPhone, prettyPhone } from '../format';
 import { IconName } from '../icons';
 import { Route, Tab, useNav } from '../nav';
@@ -26,42 +27,57 @@ const ITEMS: Item[] = [
 
 const TAB_ROUTES: Tab[] = ['home', 'cart', 'delivery'];
 
-/** Соцмережі; без адреси іконка поки не натискається. */
-export const SOCIALS: { icon: IconName; label: string; url: string }[] = [
-  { icon: 'brand-instagram', label: 'Instagram', url: '' },
-  { icon: 'brand-facebook', label: 'Facebook', url: '' },
-  { icon: 'brand-tiktok', label: 'TikTok', url: '' },
-  { icon: 'brand-telegram', label: 'Telegram', url: TELEGRAM_URL },
-];
+/** Іконки соцмереж. Viber іконки не має: він лише в «Написати нам». */
+const SOCIAL_ICONS: Partial<Record<Social['network'], IconName>> = {
+  telegram: 'brand-telegram',
+  instagram: 'brand-instagram',
+  facebook: 'brand-facebook',
+  tiktok: 'brand-tiktok',
+};
 
-/** Відкриває посилання або, поки його немає, підказує, що воно буде. */
+const FALLBACK_SOCIALS: Social[] = [{ network: 'telegram', label: 'Telegram', url: TELEGRAM_URL }];
+
+/** Телефони й соцмережі зі сторінки «Сайт» в адмінці (спільні із сайтом); поки сервер не відповів — запасні. */
 export function useContacts() {
   const nav = useNav();
+  const { config } = useShop();
+  const phones = config?.phones?.length ? config.phones : PHONES;
+  const socials = config?.socials ?? FALLBACK_SOCIALS;
+  const link = (network: Social['network'], fallback: string) =>
+    config?.socials ? (socials.find((item) => item.network === network)?.url ?? '') : fallback;
   const open = (url: string) => {
     if (url) Linking.openURL(url).catch(() => nav.showToast('Не вдалося відкрити посилання'));
     else nav.showToast('Посилання буде додано');
   };
+  const viberUrl = link('viber', VIBER_URL);
+  const telegramUrl = link('telegram', TELEGRAM_URL);
   return {
+    phones,
+    socials,
     call: (phone: string) => open(`tel:${phone}`),
-    viber: () => open(VIBER_URL),
-    telegram: () => open(TELEGRAM_URL),
+    /** Без посилання кнопку не показуємо. */
+    hasViber: !!viberUrl,
+    hasTelegram: !!telegramUrl,
+    viber: () => open(viberUrl),
+    telegram: () => open(telegramUrl),
     open,
   };
 }
 
 export function SocialIcons({ size, style }: { size: number; style: object }) {
   const contacts = useContacts();
+  const icons = contacts.socials.flatMap((item) => {
+    const icon = SOCIAL_ICONS[item.network];
+    return icon ? [{ ...item, icon }] : [];
+  });
+  if (!icons.length) return null;
   return (
     <View style={style}>
-      {SOCIALS.map((item) =>
-        item.url ? (
-          <Pressable key={item.icon} accessibilityRole="link" accessibilityLabel={item.label} hitSlop={6} onPress={() => contacts.open(item.url)}>
-            <Icon name={item.icon} size={size} color={colors.red} />
-          </Pressable>
-        ) : (
-          <Icon key={item.icon} name={item.icon} size={size} color={colors.red} />
-        ),
-      )}
+      {icons.map((item, index) => (
+        <Pressable key={`${item.network}-${index}`} accessibilityRole="link" accessibilityLabel={item.label} hitSlop={6} onPress={() => contacts.open(item.url)}>
+          <Icon name={item.icon} size={size} color={colors.red} />
+        </Pressable>
+      ))}
     </View>
   );
 }
@@ -118,15 +134,15 @@ function Ask() {
       {phones ? (
         <>
           <Text style={styles.sheetHint}>Оберіть номер</Text>
-          {PHONES.map((phone) => (
+          {contacts.phones.map((phone) => (
             <RowButton key={phone} icon="phone" label={prettyPhone(phone)} onPress={() => contacts.call(phone)} />
           ))}
         </>
       ) : (
         <RowButton icon="phone" label="Зателефонувати" onPress={() => setPhones(true)} />
       )}
-      <RowButton icon="message-circle" label="Написати у Viber" onPress={contacts.viber} />
-      <RowButton icon="brand-telegram" label="Написати в Telegram" onPress={contacts.telegram} />
+      {contacts.hasViber && <RowButton icon="message-circle" label="Написати у Viber" onPress={contacts.viber} />}
+      {contacts.hasTelegram && <RowButton icon="brand-telegram" label="Написати в Telegram" onPress={contacts.telegram} />}
     </View>
   );
 }

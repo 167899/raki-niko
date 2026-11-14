@@ -60,6 +60,11 @@ const hours = 'Щодня 10:00–21:00';
 const config: Config = {
   currency: 'UAH',
   support_phone: '+380936473902',
+  phones: ['+380936473902', '+380633001953', '+380633418905'],
+  socials: [
+    { network: 'telegram', label: 'Telegram', url: 'https://t.me/rakiniko' },
+    { network: 'instagram', label: 'Instagram', url: 'https://www.instagram.com/raki_niko_/' },
+  ],
   referral: { enabled: false, percent: 5 },
   outlets: [
     { id: 'center', name: 'Рюміна 15', address: 'Миколаїв, вул. Рюміна, 15', phone: '+380936473902', lat: 46.975, lng: 31.9946, hours },
@@ -140,6 +145,7 @@ export const demoApi: Api = {
       status: { code: 'awaiting_confirmation', label: 'Менеджер перевіряє замовлення' },
       created_at: new Date().toISOString(),
       items: order.items.map((item) => ({
+        product_id: item.product_id,
         name: catalog.products.find((candidate) => candidate.id === item.product_id)!.name,
         quantity: item.quantity,
         unit: 'kg',
@@ -166,4 +172,21 @@ export const demoApi: Api = {
     if (!found) throw new ApiError('Замовлення не знайдено.', 'raky_order_not_found', 404);
     return withStatus(found);
   },
+  // У демо немає бота: вхід через Telegram недоступний, замовлення лишаються на пристрої.
+  authStart: async () => {
+    throw new ApiError('У демо-версії вхід через Telegram недоступний.', 'raky_auth_unavailable', 503);
+  },
+  authStatus: async () => {
+    throw new ApiError('Час на підтвердження минув. Спробуйте ще раз.', 'raky_auth_expired', 404);
+  },
+  myOrders: async () => {
+    throw new ApiError('Увійдіть через Telegram ще раз.', 'raky_auth_required', 401);
+  },
+  favorites: async () => {
+    throw new ApiError('Увійдіть через Telegram ще раз.', 'raky_auth_required', 401);
+  },
+  saveFavorites: async () => {
+    throw new ApiError('Увійдіть через Telegram ще раз.', 'raky_auth_required', 401);
+  },
+  logout: async () => ({ ok: true }),
 };

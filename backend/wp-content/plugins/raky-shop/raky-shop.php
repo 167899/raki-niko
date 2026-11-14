@@ -31,6 +31,7 @@ require_once __DIR__ . '/includes/sync.php';
 require_once __DIR__ . '/includes/skyservice.php';
 require_once __DIR__ . '/includes/referral.php';
 require_once __DIR__ . '/includes/telegram.php';
+require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/admin.php';
 
 register_activation_hook(__FILE__, 'raky_name_default_category');
@@ -46,7 +47,7 @@ add_action('rest_api_init', static function () {
 	add_filter('rest_pre_serve_request', static function ($value) {
 		header('Access-Control-Allow-Origin: *');
 		header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-		header('Access-Control-Allow-Headers: Content-Type');
+		header('Access-Control-Allow-Headers: Content-Type, X-Raky-Session');
 		return $value;
 	});
 	// Кеш хостингу (LiteSpeed) тримав би відповіді застосунку тиждень: старі ціни, наявність і статуси замовлень.

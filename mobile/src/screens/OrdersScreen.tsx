@@ -36,7 +36,7 @@ function orderText(order: Order): string {
 
 function OrderCard({ order }: { order: Order }) {
   const nav = useNav();
-  const { repeatOrder } = useShop();
+  const { repeatOrder, canRepeat } = useShop();
   const [showRequisites, setShowRequisites] = useState(false);
   const status = STATUS[order.status.code];
   const feePending = order.delivery_type === 'delivery' && order.shipping === 0;
@@ -79,7 +79,7 @@ function OrderCard({ order }: { order: Order }) {
           />
         </>
       )}
-      {order.status.code === 'completed' && (
+      {order.status.code === 'completed' && canRepeat(order.id) && (
         <Button
           size="sm"
           kind="outline"
@@ -96,7 +96,8 @@ function OrderCard({ order }: { order: Order }) {
 }
 
 export function OrdersScreen() {
-  const { orders, ordersLoading, refreshOrders } = useShop();
+  const nav = useNav();
+  const { orders, ordersLoading, refreshOrders, verified, user } = useShop();
 
   useEffect(() => {
     refreshOrders();
@@ -111,6 +112,15 @@ export function OrdersScreen() {
         <Loading />
       ) : (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={shared.pad} showsVerticalScrollIndicator={false}>
+          {!verified && (
+            <Paragraph style={{ marginBottom: 8 }}>
+              Тут видно замовлення з цього телефона.{' '}
+              <Text accessibilityRole="link" style={{ color: colors.red }} onPress={() => nav.go({ name: user ? 'profile' : 'login' })}>
+                Увійдіть через Telegram
+              </Text>
+              , щоб бачити й замовлення, оформлені на сайті.
+            </Paragraph>
+          )}
           {orders.length ? orders.map((order) => <OrderCard key={order.id} order={order} />) : <Empty icon="receipt" text="Тут будуть ваші замовлення" />}
         </ScrollView>
       )}

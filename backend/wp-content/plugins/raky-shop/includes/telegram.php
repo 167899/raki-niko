@@ -9,6 +9,7 @@ defined('ABSPATH') || exit;
  * Натискання приймаються лише з підключеного чату.
  *
  * З того ж чату менеджери додають новини в застосунок: кнопка «Меню» → /news.
+ * В особистому чаті з ботом клієнти підтверджують номер для входу (includes/auth.php).
  *
  * Сайт на https отримує натискання миттєво (webhook). Без https, як на локальному сервері,
  * плагін сам забирає їх щохвилини (getUpdates у WP-Cron).
@@ -324,6 +325,11 @@ function raky_tg_handle_update(array $update): void {
 
 /** Повідомлення в підключеному чаті: команда /news і відповіді на запит бота. */
 function raky_tg_handle_message(array $message): void {
+	// Особистий чат клієнта з ботом — вхід через Telegram (includes/auth.php).
+	if (($message['chat']['type'] ?? '') === 'private') {
+		raky_auth_tg_private($message);
+		return;
+	}
 	$settings = raky_tg_settings();
 	$chat     = (string) ($message['chat']['id'] ?? '');
 	if ($chat === '' || $chat !== (string) $settings['chat_id']) {

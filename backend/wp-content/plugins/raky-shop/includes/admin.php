@@ -337,9 +337,13 @@ function raky_save_settings(): ?string {
 			return 'Кожна зона потребує id, name, outlet_id, fee, min_order і щонайменше 3 точки polygon.';
 		}
 	}
+	// Телефони й соцмережі редагуються на сторінці «Сайт» (raky_save_contacts), тут лишаємо як є.
+	$previous = (array) get_option('raky_settings', []);
 	update_option('raky_settings', [
 		'requisites'    => sanitize_textarea_field(wp_unslash((string) ($_POST['requisites'] ?? ''))),
-		'support_phone' => sanitize_text_field(wp_unslash((string) ($_POST['support_phone'] ?? ''))),
+		'support_phone' => (string) ($previous['support_phone'] ?? ''),
+		'phones'        => (array) ($previous['phones'] ?? raky_contacts()['phones']),
+		'socials'       => (array) ($previous['socials'] ?? array_map(static fn (array $item) => ['network' => $item['network'], 'url' => $item['url']], raky_contacts()['socials'])),
 		'referral_on'   => ! empty($_POST['referral_on']),
 		'referral_pct'  => max(0, min(100, (float) ($_POST['referral_pct'] ?? 0))),
 		'outlets'       => $outlets,
@@ -396,8 +400,8 @@ function raky_render_settings_page(): void {
 			<h2>Реквізити для оплати</h2>
 			<p>Клієнт бачить їх лише після підтвердження замовлення.</p>
 			<textarea name="requisites" rows="6" class="large-text"><?php echo esc_textarea($settings['requisites']); ?></textarea>
-			<h2>Телефон підтримки</h2>
-			<input name="support_phone" class="regular-text" value="<?php echo esc_attr($settings['support_phone']); ?>">
+			<h2>Телефони й соцмережі</h2>
+			<p>Спільні для застосунку й сайту, редагуються на сторінці <a href="<?php echo esc_url(admin_url('admin.php?page=raky-site')); ?>">«Сайт» → «Контакти»</a>.</p>
 			<h2>Реферальна програма</h2>
 			<p><label><input type="checkbox" name="referral_on" value="1" <?php checked($settings['referral_on']); ?>> Увімкнути запрошення друзів</label></p>
 			<p><label>Разова знижка кожному учаснику, %: <input type="number" name="referral_pct" min="0" max="100" step="0.5" value="<?php echo esc_attr((string) $settings['referral_pct']); ?>"></label></p>
@@ -412,6 +416,107 @@ function raky_render_settings_page(): void {
 			<?php submit_button('Зберегти', 'primary', 'raky_save'); ?>
 		</form>
 	</div>
+	<?php
+}
+
+/**
+ * Зберігає телефони й соцмережі (з форми сторінки «Сайт»). Повертає текст помилки або null.
+ * Зберігаються в raky_settings, звідки їх бере і застосунок (/config), і сайт.
+ */
+function raky_save_contacts(array $raw_phones, array $networks, array $urls): ?string {
+	$phones = [];
+	foreach ($raw_phones as $raw) {
+		$raw = trim((string) $raw);
+		if ($raw === '') {
+			continue;
+		}
+		$phone = raky_contact_phone($raw);
+		if ($phone === '') {
+			return sprintf('Телефон «%s» не схожий на український номер. Вкажіть у форматі +380XXXXXXXXX. Телефони й соцмережі не збережено.', $raw);
+		}
+		$phones[] = $phone;
+	}
+	if (! $phones) {
+		return 'Залиште хоча б один телефон. Телефони й соцмережі не збережено.';
+	}
+	$socials = [];
+	foreach ($urls as $index => $raw) {
+		$raw     = trim((string) $raw);
+		$network = (string) ($networks[$index] ?? '');
+		if ($raw === '') {
+			continue;
+		}
+		$url = esc_url_raw($raw, ['https', 'http', 'viber', 'tg']);
+		if (! isset(RAKY_SOCIAL_NETWORKS[$network]) || $url === '') {
+			return sprintf('Посилання «%s» некоректне. Вкажіть повну адресу, наприклад https://instagram.com/… Телефони й соцмережі не збережено.', $raw);
+		}
+		$socials[] = ['network' => $network, 'url' => $url];
+	}
+	$phones                    = array_values(array_unique($phones));
+	$settings                  = (array) get_option('raky_settings', []);
+	$settings['phones']        = $phones;
+	$settings['support_phone'] = $phones[0];
+	$settings['socials']       = $socials;
+	update_option('raky_settings', $settings);
+	return null;
+}
+
+/**
+ * Телефони й соцмережі: рядки можна додавати й видаляти. Однакові для застосунку й сайту.
+ * $name — префікс полів форми, напр. raky_site[contacts].
+ */
+function raky_render_contacts_fields(string $name): void {
+	$contacts = raky_contacts();
+	$network_select = static function (string $current) use ($name): string {
+		$options = '';
+		foreach (RAKY_SOCIAL_NETWORKS as $key => $label) {
+			$options .= sprintf('<option value="%s"%s>%s</option>', esc_attr($key), selected($current, $key, false), esc_html($label));
+		}
+		return '<select name="' . esc_attr($name) . '[network][]" aria-label="Соцмережа">' . $options . '</select>';
+	};
+	$phone_row = static fn (string $phone): string => sprintf(
+		'<p class="raky-row"><input name="%s[phones][]" class="regular-text" value="%s" placeholder="+380XXXXXXXXX" aria-label="Телефон"> <button type="button" class="button-link raky-row-remove">Видалити</button></p>',
+		esc_attr($name),
+		esc_attr($phone)
+	);
+	$social_row = static fn (string $network, string $url): string => sprintf(
+		'<p class="raky-row">%s <input name="%s[url][]" type="url" class="regular-text" value="%s" placeholder="https://…" aria-label="Посилання"> <button type="button" class="button-link raky-row-remove">Видалити</button></p>',
+		$network_select($network),
+		esc_attr($name),
+		esc_attr($url)
+	);
+	?>
+	<h3>Телефони</h3>
+	<p>Однакові в застосунку й на сайті. Перший — головний: він у шапці сайту й на кнопці «Зателефонувати».</p>
+	<div class="raky-rows" data-template="<?php echo esc_attr($phone_row('')); ?>">
+		<?php foreach ($contacts['phones'] as $phone) {
+			echo $phone_row($phone); // phpcs:ignore WordPress.Security.EscapeOutput -- зібрано з екранованих частин
+		} ?>
+		<p><button type="button" class="button raky-row-add">+ Додати телефон</button></p>
+	</div>
+	<h3>Соцмережі</h3>
+	<p>Іконки в застосунку й на сайті йдуть у цьому порядку. Telegram і Viber також відкриваються з кнопки «Запитати».</p>
+	<div class="raky-rows" data-template="<?php echo esc_attr($social_row('instagram', '')); ?>">
+		<?php foreach ($contacts['socials'] as $item) {
+			echo $social_row($item['network'], $item['url']); // phpcs:ignore WordPress.Security.EscapeOutput -- зібрано з екранованих частин
+		} ?>
+		<p><button type="button" class="button raky-row-add">+ Додати соцмережу</button></p>
+	</div>
+	<script>
+	document.querySelectorAll('.raky-rows').forEach(function (box) {
+		box.addEventListener('click', function (event) {
+			if (event.target.closest('.raky-row-remove')) {
+				event.target.closest('.raky-row').remove();
+			} else if (event.target.closest('.raky-row-add')) {
+				var holder = document.createElement('div');
+				holder.innerHTML = box.dataset.template;
+				var row = holder.firstElementChild;
+				event.target.closest('p').before(row);
+				row.querySelector('input').focus();
+			}
+		});
+	});
+	</script>
 	<?php
 }
 

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AddonCounts, api, ApiError, Banner, Catalog, Config, News, Order, OrderItem, OrderStatusCode, Product, Referral } from './api';
 import { phoneDigits } from './format';
+import { linesFromOrder } from './orderLines';
 
 /** addons: «Додатково» до цього рядка, назва → штук. Старі записи кошика поля не мають. */
 export type CartLine = { productId: number; flavor: string; quantity: number; addons?: AddonCounts };
@@ -14,7 +15,7 @@ type SavedOrder = { id: number; key: string; lines: CartLine[] };
 
 export type User = { name: string; phone: string; email: string };
 
-/** Акаунт поки живе лише на пристрої: серверні акаунти з'являться разом із перевіркою телефона. */
+/** Акаунт живе на пристрої. Номер можна підтвердити в Telegram — тоді замовлення й улюблене синхронізуються з сайтом (Session). */
 type Accounts = Record<string, User>;
 
 type Promo = { code: string; discount: number };
@@ -31,7 +32,12 @@ const STORAGE = {
   read: 'raky.read.v1',
   notes: 'raky.notes.v1',
   statuses: 'raky.statuses.v1',
+  session: 'raky.session.v1',
 };
+
+/** Номер, підтверджений у Telegram: з ним сервер віддає всі замовлення клієнта, зокрема з сайту. */
+/** mergeFavorites — щойно увійшли: «Улюблене» з пристрою додаємо до збереженого на сервері, а не замінюємо ним. */
+export type Session = { session: string; phone: string; mergeFavorites?: boolean };
 
 const ORDER_POLL_MS = process.env.EXPO_PUBLIC_DEMO === '1' ? 3_000 : 30_000;
 
@@ -84,6 +90,7 @@ function useShopState() {
   const [accounts, setAccounts] = useStored<Accounts>(STORAGE.accounts, {}, restored);
   const [readIds, setReadIds] = useStored<string[]>(STORAGE.read, [], restored);
   const [notes, setNotes] = useStored<LocalNote[]>(STORAGE.notes, [], restored);
+  const [session, setSession] = useStored<Session | null>(STORAGE.session, null, restored);
 
   const reload = useCallback(async () => {
     try {
@@ -124,6 +131,7 @@ function useShopState() {
       parse(STORAGE.accounts, setAccounts);
       parse(STORAGE.read, setReadIds);
       parse(STORAGE.notes, setNotes);
+      parse(STORAGE.session, setSession);
       parse<Record<number, OrderStatusCode>>(STORAGE.statuses, (value) => {
         statuses.current = value;
       });
@@ -277,14 +285,61 @@ function useShopState() {
     };
   }, [bonus, promo, orderItems, user?.phone]);
 
+  // «Улюблене» з підтвердженим номером живе на сервері: однакове на сайті й у застосунку.
+  const favoritesNow = useRef(favorites);
+  favoritesNow.current = favorites;
+  useEffect(() => {
+    if (!restored || !session) return;
+    let current = true;
+    api
+      .favorites(session.session)
+      .then(({ ids }) => {
+        if (!current) return;
+        if (!session.mergeFavorites) {
+          setFavorites(ids);
+          return;
+        }
+        const merged = [...new Set([...ids, ...favoritesNow.current])];
+        setFavorites(merged);
+        setSession({ session: session.session, phone: session.phone });
+        if (merged.length !== ids.length) api.saveFavorites(session.session, merged).catch(() => undefined);
+      })
+      .catch((error) => {
+        if (current && error instanceof ApiError && error.status === 401) setSession(null);
+      });
+    return () => {
+      current = false;
+    };
+  }, [restored, session, setFavorites, setSession]);
+
   const toggleFavorite = useCallback(
-    (id: number) => setFavorites((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id])),
-    [setFavorites],
+    (id: number) => {
+      const next = favorites.includes(id) ? favorites.filter((x) => x !== id) : [...favorites, id];
+      setFavorites(next);
+      if (session) api.saveFavorites(session.session, next).catch(() => undefined);
+    },
+    [favorites, setFavorites, session],
   );
 
   const refreshOrders = useCallback(async () => {
-    const results = await Promise.all(savedOrders.map((order) => api.order(order.id, order.key).catch(() => null)));
-    const fresh = results.filter((order) => order !== null);
+    // Підтверджений номер: сервер віддає всі замовлення з ним — і з цього пристрою, і з сайту.
+    let synced: Order[] = [];
+    if (session) {
+      try {
+        synced = (await api.myOrders(session.session)).orders;
+      } catch (error) {
+        // Сесію відкликали — працюємо як раніше, лише із замовленнями цього пристрою.
+        if (error instanceof ApiError && error.status === 401) setSession(null);
+      }
+    }
+    const known = new Set(savedOrders.map((order) => order.id));
+    const added = synced.filter((order) => !known.has(order.id));
+    // Склад кошика чужого замовлення береться з відповіді сервера (linesFromOrder).
+    if (added.length) setSavedOrders((current) => [...current, ...added.map((order) => ({ id: order.id, key: order.key, lines: [] }))]);
+    const syncedIds = new Set(synced.map((order) => order.id));
+    const local = savedOrders.filter((order) => !syncedIds.has(order.id));
+    const results = await Promise.all(local.map((order) => api.order(order.id, order.key).catch(() => null)));
+    const fresh = [...synced, ...results.filter((order) => order !== null)];
     for (const order of fresh) {
       const before = statuses.current[order.id];
       const note = before && before !== order.status.code ? STATUS_NOTES[order.status.code]?.(order) : null;
@@ -298,14 +353,14 @@ function useShopState() {
     AsyncStorage.setItem(STORAGE.statuses, JSON.stringify(statuses.current)).catch(() => undefined);
     setOrderDetails((current) => ({ ...current, ...Object.fromEntries(fresh.map((order) => [order.id, order])) }));
     setOrdersChecked(true);
-  }, [savedOrders, setNotes]);
+  }, [savedOrders, setNotes, session, setSession, setSavedOrders]);
 
   useEffect(() => {
-    if (!restored || !savedOrders.length) return;
+    if (!restored || (!savedOrders.length && !session)) return;
     refreshOrders();
     const timer = setInterval(refreshOrders, ORDER_POLL_MS);
     return () => clearInterval(timer);
-  }, [restored, savedOrders, refreshOrders]);
+  }, [restored, savedOrders, session, refreshOrders]);
 
   const rememberOrder = useCallback(
     (order: Order, placed: CartLine[]) => {
@@ -316,10 +371,18 @@ function useShopState() {
     [setSavedOrders],
   );
 
-  const repeatOrder = useCallback(
-    (id: number) => savedOrders.find((order) => order.id === id)?.lines.forEach(addToCart),
-    [savedOrders, addToCart],
+  /** Склад кошика: з цього пристрою, а для замовлень із сайту — з відповіді сервера. */
+  const repeatLines = useCallback(
+    (id: number): CartLine[] => {
+      const local = savedOrders.find((order) => order.id === id)?.lines ?? [];
+      return local.length ? local : orderDetails[id] ? linesFromOrder(orderDetails[id]) : [];
+    },
+    [savedOrders, orderDetails],
   );
+
+  const canRepeat = useCallback((id: number) => repeatLines(id).length > 0, [repeatLines]);
+
+  const repeatOrder = useCallback((id: number) => repeatLines(id).forEach(addToCart), [repeatLines, addToCart]);
 
   const signIn = useCallback(
     (next: User) => {
@@ -329,22 +392,53 @@ function useShopState() {
     [setUser, setAccounts],
   );
 
+  /** Відкликає сесію на сервері: інший номер чи вихід. */
+  const dropSession = useCallback(() => {
+    if (session) api.logout(session.session).catch(() => undefined);
+    setSession(null);
+  }, [session, setSession]);
+
+  /** Номер підтверджено в Telegram: входимо, ім'я й email беремо з наявного акаунта на пристрої. */
+  const confirmTelegram = useCallback(
+    (confirmed: { session: string; phone: string; name: string }) => {
+      setSession({ session: confirmed.session, phone: confirmed.phone, mergeFavorites: true });
+      const known = accounts[phoneDigits(confirmed.phone)];
+      const current = user && phoneDigits(user.phone) === phoneDigits(confirmed.phone) ? user : null;
+      signIn({
+        name: current?.name || known?.name || confirmed.name,
+        phone: confirmed.phone,
+        email: current?.email || known?.email || '',
+      });
+    },
+    [accounts, user, signIn, setSession],
+  );
+
+  const verified = !!session && !!user && phoneDigits(session.phone) === phoneDigits(user.phone);
+
   const updateProfile = useCallback(
     (next: User) => {
+      // Новий номер ще не підтверджено: синхронізацію вимикаємо.
+      if (session && phoneDigits(session.phone) !== phoneDigits(next.phone)) dropSession();
       setAccounts((current) => {
         const { [phoneDigits(user?.phone ?? '')]: _previous, ...rest } = current;
         return { ...rest, [phoneDigits(next.phone)]: next };
       });
       setUser(next);
     },
-    [user?.phone, setAccounts, setUser],
+    [user?.phone, setAccounts, setUser, session, dropSession],
   );
 
   const findAccount = useCallback((phone: string): User | null => accounts[phoneDigits(phone)] ?? null, [accounts]);
 
-  const signOut = useCallback(() => setUser(null), [setUser]);
+  const signOut = useCallback(() => {
+    dropSession();
+    setUser(null);
+    // Замовлення, що прийшли з сервера за номером, на пристрої не лишаємо.
+    setSavedOrders((current) => current.filter((order) => order.lines.length > 0));
+  }, [dropSession, setUser, setSavedOrders]);
 
   const deleteAccount = useCallback(() => {
+    dropSession();
     if (user) {
       setAccounts((current) => {
         const { [phoneDigits(user.phone)]: _removed, ...rest } = current;
@@ -356,7 +450,7 @@ function useShopState() {
     setOrderDetails({});
     setNotes([]);
     statuses.current = {};
-  }, [user, setAccounts, setUser, setSavedOrders, setNotes]);
+  }, [user, setAccounts, setUser, setSavedOrders, setNotes, dropSession]);
 
   const allNotes = useMemo(
     () =>
@@ -375,7 +469,10 @@ function useShopState() {
   );
 
   const orders = useMemo(
-    () => savedOrders.flatMap((order) => (orderDetails[order.id] ? [orderDetails[order.id]] : [])),
+    () =>
+      savedOrders
+        .flatMap((order) => (orderDetails[order.id] ? [orderDetails[order.id]] : []))
+        .sort((a, b) => b.id - a.id),
     [savedOrders, orderDetails],
   );
 
@@ -406,9 +503,13 @@ function useShopState() {
     orders,
     refreshOrders,
     // Сервер може не знайти старі замовлення, тому чекаємо лише першу перевірку, а не всі записи.
-    ordersLoading: savedOrders.length > 0 && !ordersChecked,
+    ordersLoading: (savedOrders.length > 0 || !!session) && !ordersChecked,
     rememberOrder,
     repeatOrder,
+    canRepeat,
+    session,
+    verified,
+    confirmTelegram,
     user,
     signIn,
     updateProfile,

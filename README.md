@@ -2,6 +2,7 @@
 
 - `mobile/`: застосунок iOS та Android (Expo, React Native, TypeScript), українською.
 - `backend/`: WooCommerce і плагін `raky-shop` (API, статуси, зони, реквізити).
+- `backend/wp-content/themes/raky-site/`: сайт rakiniko.com.ua на тих самих даних, що й застосунок (див. README теми).
 
 ## Локальний запуск
 

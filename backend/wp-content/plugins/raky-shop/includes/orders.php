@@ -277,6 +277,8 @@ function raky_order_payload(WC_Order $order): array {
 		$unit    = $product ? raky_product_unit($product) : 'pcs';
 		$weighted = $weighted || raky_unit_weighed($unit);
 		$items[] = [
+			// Для «Повторити замовлення» на будь-якому пристрої: з product_id, смаку й додатків збирається кошик.
+			'product_id' => (int) $item->get_product_id(),
 			'name'     => $item->get_name(),
 			'quantity' => (float) $item->get_quantity(),
 			'unit'     => $unit,

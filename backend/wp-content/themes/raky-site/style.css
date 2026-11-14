@@ -1,0 +1,7 @@
+/*
+Theme Name: Raki Niko
+Description: Сайт магазину Raki Niko. Сторінки збирає PHP із тих самих даних, що й застосунок (плагін raky-shop), кошик і оформлення працюють через API raky/v1. Стилі й скрипти в src/, збірка: npm run build.
+Version: 0.1.0
+Requires PHP: 8.1
+Text Domain: raky-site
+*/
