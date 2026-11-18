@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, ScrollViewInstance, StyleSheet, Text, View } from 'react-native';
-import { Banner, Product } from '../api';
+import { Banner, Product, Subcategory } from '../api';
 import { BannerFace, useBannerRatios } from '../components/BannerFace';
 import { Badge, BottomBar, Button, Chip, Empty, Heart, Icon, IconButton, Input, Loading, Logo, ProductPicture, shared } from '../components/ui';
 import { unitPrice } from '../format';
@@ -123,7 +123,8 @@ function ProductCard({ card: { product, title, fromPrice } }: { card: Card }) {
 }
 
 /** Меню як на сайті: усі категорії підряд, стрічка категорій гортає до розділу й підсвічує той, що зараз видно. */
-type Section = { id: number; name: string; cards: Card[] };
+type Block = { sub: Subcategory | null; cards: Card[] };
+type Section = { id: number; name: string; blocks: Block[] };
 const JUMP_LOCK_MS = 700;
 
 export function HomeScreen() {
@@ -140,12 +141,22 @@ export function HomeScreen() {
   const jumping = useRef(0);
 
   const sections = useMemo<Section[]>(() => {
+    const subName = (product: Product) => catalog?.subcategories?.find((sub) => sub.id === product.subcategory_id)?.name ?? '';
     const products = (catalog?.products ?? []).filter((product) => product.in_stock);
     return (catalog?.categories ?? []).flatMap((category) => {
       const found = products.filter(
-        (product) => product.category_id === category.id && fuzzyMatch(search, [product.name, product.group, category.name].filter(Boolean).join(' ')),
+        (product) =>
+          product.category_id === category.id &&
+          fuzzyMatch(search, [product.name, product.group, subName(product), category.name].filter(Boolean).join(' ')),
       );
-      return found.length ? [{ id: category.id, name: category.name, cards: buildCards(found) }] : [];
+      if (!found.length) return [];
+      // Спершу картки без підрозділу, далі підрозділи з підзаголовками в порядку адмінки.
+      const subs = (catalog?.subcategories ?? []).filter((sub) => sub.category_id === category.id);
+      const blocks: Block[] = [
+        { sub: null, cards: buildCards(found.filter((product) => !subs.some((sub) => sub.id === product.subcategory_id))) },
+        ...subs.map((sub) => ({ sub, cards: buildCards(found.filter((product) => product.subcategory_id === sub.id)) })),
+      ].filter((block) => block.cards.length);
+      return [{ id: category.id, name: category.name, blocks }];
     });
   }, [catalog, search]);
 
@@ -283,11 +294,20 @@ export function HomeScreen() {
               <Text accessibilityRole="header" style={styles.sectionTitle}>
                 {section.name}
               </Text>
-              <View style={styles.grid}>
-                {section.cards.map((card) => (
-                  <ProductCard key={card.product.id} card={card} />
-                ))}
-              </View>
+              {section.blocks.map((block) => (
+                <View key={block.sub?.id ?? 0}>
+                  {!!block.sub && (
+                    <Text accessibilityRole="header" style={styles.subTitle}>
+                      {block.sub.name}
+                    </Text>
+                  )}
+                  <View style={styles.grid}>
+                    {block.cards.map((card) => (
+                      <ProductCard key={card.product.id} card={card} />
+                    ))}
+                  </View>
+                </View>
+              ))}
             </View>
           ))}
           {!sections.length && <Text style={styles.nothing}>Нічого не знайдено</Text>}
@@ -317,6 +337,7 @@ const styles = StyleSheet.create({
   // Заметний проміжок між категоріями: розділи не зливаються в один список.
   section: { paddingTop: 22 },
   sectionTitle: { fontSize: 20, lineHeight: 25, fontWeight: '600', color: colors.ink, paddingHorizontal: gutter, marginBottom: 10 },
+  subTitle: { fontSize: 17, lineHeight: 22, fontWeight: '500', color: colors.ink, paddingHorizontal: gutter, marginTop: 14, marginBottom: 8 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8, paddingHorizontal: gutter, paddingBottom: 6 },
   card: { width: '48.8%', borderWidth: 1, borderColor: colors.line, borderRadius: 12, overflow: 'hidden' },
   // Квадратне фото: висота дорівнює ширині картки.

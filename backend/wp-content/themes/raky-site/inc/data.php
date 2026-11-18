@@ -75,6 +75,39 @@ function raky_site_cards(array $products): array {
 	return $cards;
 }
 
+/**
+ * Картки розділу, розкладені по підрозділах: спершу картки без підрозділу, далі підрозділи в порядку адмінки.
+ *
+ * @return array<int, array{sub: ?array, cards: array}>
+ */
+function raky_site_blocks(int $category_id): array {
+	$products = raky_site_products_in($category_id);
+	$blocks   = [['sub' => null, 'cards' => raky_site_cards(array_filter($products, static fn (array $item) => ! $item['subcategory_id']))]];
+	foreach (raky_site_catalog()['subcategories'] as $sub) {
+		if ($sub['category_id'] === $category_id) {
+			$blocks[] = ['sub' => $sub, 'cards' => raky_site_cards(array_filter($products, static fn (array $item) => $item['subcategory_id'] === $sub['id']))];
+		}
+	}
+	return array_values(array_filter($blocks, static fn (array $block) => $block['cards']));
+}
+
+/** Сітка карток розділу з підзаголовками підрозділів. $eager — скільки перших фото вантажити одразу. */
+function raky_site_blocks_html(array $blocks, int &$eager): void {
+	foreach ($blocks as $block) {
+		if ($block['sub']) {
+			printf('<div class="subsection" id="sub-%1$d" data-sub><h3 class="subsection__title">%2$s</h3>', (int) $block['sub']['id'], esc_html($block['sub']['name']));
+		}
+		echo '<div class="grid">';
+		foreach ($block['cards'] as $card) {
+			raky_site_part('card', ['card' => $card, 'eager' => $eager-- > 0]);
+		}
+		echo '</div>';
+		if ($block['sub']) {
+			echo '</div>';
+		}
+	}
+}
+
 /** Калібри товару: товари тієї ж підкатегорії в наявності, від дешевшого. */
 function raky_site_calibers(array $product): array {
 	if ($product['group'] === '') {
@@ -102,6 +135,11 @@ function raky_site_card_search(array $card): string {
 	$category = raky_site_category($card['product']['category_id']);
 	$words    = array_map(static fn (array $item) => $item['name'], $card['members']);
 	$words[]  = $card['product']['group'];
+	foreach (raky_site_catalog()['subcategories'] as $sub) {
+		if ($sub['id'] === $card['product']['subcategory_id']) {
+			$words[] = $sub['name'];
+		}
+	}
 	$words[]  = $category['name'] ?? '';
 	return implode(' ', array_filter($words));
 }

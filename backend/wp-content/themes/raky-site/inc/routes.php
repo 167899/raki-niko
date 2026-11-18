@@ -77,7 +77,15 @@ function raky_site_current(): array {
 		if ($category) {
 			return $current = ['type' => 'category', 'template' => 'category', 'category' => $category];
 		}
-		// Підкатегорія — це калібри одного товару: ведемо на сам товар.
+		// Підрозділ показується на сторінці свого розділу: ведемо туди, одразу до підзаголовка.
+		if ($term instanceof WP_Term) {
+			foreach (raky_site_catalog()['subcategories'] as $sub) {
+				if ($sub['id'] === $term->term_id) {
+					return $current = ['type' => 'redirect', 'to' => raky_site_category_url($sub['category_id']) . '#sub-' . $sub['id']];
+				}
+			}
+		}
+		// Найглибша підкатегорія — це калібри одного товару: ведемо на сам товар.
 		if ($term instanceof WP_Term && $term->parent) {
 			foreach (raky_site_cards(raky_site_products_in()) as $card) {
 				if ($card['product']['group'] === $term->name) {

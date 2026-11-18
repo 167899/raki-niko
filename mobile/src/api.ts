@@ -22,6 +22,8 @@ export type Product = {
   name: string;
   description: string;
   category_id: number;
+  /** Підрозділ усередині категорії («Суші та роли» → «Каліфорнія»), 0 — без підрозділу. Старий сервер поле не надсилає. */
+  subcategory_id?: number;
   price: number;
   unit: Unit;
   step: number;
@@ -38,7 +40,10 @@ export type Product = {
   addons?: Addon[];
 };
 
-export type Catalog = { categories: Category[]; products: Product[] };
+/** name — шлях від категорії без неї: «Каліфорнія» чи «Каліфорнія · Гострі». Порядок — як в адмінці. */
+export type Subcategory = { id: number; category_id: number; name: string };
+
+export type Catalog = { categories: Category[]; subcategories?: Subcategory[]; products: Product[] };
 
 export type Outlet = {
   id: string;

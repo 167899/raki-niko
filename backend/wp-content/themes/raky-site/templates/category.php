@@ -1,9 +1,9 @@
 <?php
-/** Категорія: одна картка на підкатегорію (калібри обираються в товарі). */
+/** Категорія: підрозділи з підзаголовками, одна картка на найглибшу категорію (калібри обираються в товарі). */
 defined('ABSPATH') || exit;
 
 $category = raky_site_current()['category'];
-$cards    = raky_site_cards(raky_site_products_in($category['id']));
+$blocks   = raky_site_blocks($category['id']);
 $eager    = 4;
 
 raky_site_part('header');
@@ -25,12 +25,8 @@ raky_site_part('header');
 		</nav>
 	</div>
 	<section class="section" data-section="<?php echo (int) $category['id']; ?>">
-		<?php if ($cards) : ?>
-			<div class="grid">
-				<?php foreach ($cards as $card) : ?>
-					<?php raky_site_part('card', ['card' => $card, 'eager' => $eager-- > 0]); ?>
-				<?php endforeach; ?>
-			</div>
+		<?php if ($blocks) : ?>
+			<?php raky_site_blocks_html($blocks, $eager); ?>
 		<?php else : ?>
 			<p class="nothing">Зараз у цій категорії немає товарів у наявності.</p>
 		<?php endif; ?>
