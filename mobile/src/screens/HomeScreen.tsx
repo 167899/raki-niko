@@ -85,8 +85,11 @@ function Banners({ banners }: { banners: Banner[] }) {
   );
 }
 
-/** Картка веде на товар; для підкатегорії це найдешевший калібр, інші обираються в товарі. */
-type Card = { product: Product; title: string; fromPrice: boolean };
+/**
+ * Картка веде на товар; для підкатегорії це найдешевший калібр, інші обираються в товарі.
+ * folder — картка папки («Каліфорнія»): відкриває екран з її картками.
+ */
+export type Card = { product: Product; title: string; fromPrice: boolean; folder?: Subcategory };
 
 /** Одна картка на підкатегорію, як на сайті. */
 function buildCards(products: Product[]): Card[] {
@@ -101,30 +104,56 @@ function buildCards(products: Product[]): Card[] {
   });
 }
 
-function ProductCard({ card: { product, title, fromPrice } }: { card: Card }) {
+/**
+ * Картки розділу чи папки в порядку товарів: папка — одна картка на всі свої товари, решта — як buildCards.
+ * folderId 0 — сам розділ.
+ */
+export function buildCardsAt(products: Product[], subcategories: Subcategory[], folderId = 0): Card[] {
+  const entries = new Map<string, Product[]>();
+  for (const product of products) {
+    let path = product.path ?? [];
+    if (folderId) {
+      const at = path.indexOf(folderId);
+      if (at < 0) continue;
+      path = path.slice(at + 1);
+    }
+    const key = path.length ? `folder-${path[0]}` : product.group ? `group-${product.group}` : `product-${product.id}`;
+    entries.set(key, [...(entries.get(key) ?? []), product]);
+  }
+  return [...entries.entries()].map(([key, items]) => {
+    const folder = key.startsWith('folder-') ? subcategories.find((sub) => `folder-${sub.id}` === key) : undefined;
+    if (!folder) return buildCards(items)[0];
+    const cheapest = items.reduce((best, item) => (item.price < best.price ? item : best));
+    return { product: cheapest, title: folder.name, fromPrice: items.length > 1, folder };
+  });
+}
+
+export function ProductCard({ card: { product, title, fromPrice, folder } }: { card: Card }) {
   const nav = useNav();
   const { favorites } = useShop();
   return (
     <View style={styles.card}>
       <ProductPicture product={product} size={44} style={styles.pic} />
-      <View style={styles.cardHeart}>
-        <Heart id={product.id} on={favorites.includes(product.id)} />
-      </View>
+      {!folder && (
+        <View style={styles.cardHeart}>
+          <Heart id={product.id} on={favorites.includes(product.id)} />
+        </View>
+      )}
       <View style={styles.cardBody}>
         <Text style={styles.cardName}>{title}</Text>
         <Text style={styles.cardPrice}>
           {fromPrice ? 'від ' : ''}
           {unitPrice(product.price, product.unit)}
         </Text>
-        <Button size="sm" title="Обрати" style={styles.cardButton} onPress={() => nav.go({ name: 'product', productId: product.id })} />
+        <Button size="sm" title="Обрати" style={styles.cardButton} onPress={() => nav.go(folder ? { name: 'folder', folderId: folder.id } : { name: 'product', productId: product.id })}
+        />
       </View>
     </View>
   );
 }
 
 /** Меню як на сайті: усі категорії підряд, стрічка категорій гортає до розділу й підсвічує той, що зараз видно. */
-type Block = { sub: Subcategory | null; cards: Card[] };
-type Section = { id: number; name: string; blocks: Block[] };
+type Section = { id: number; name: string; cards: Card[] };
 const JUMP_LOCK_MS = 700;
 
 export function HomeScreen() {
@@ -141,22 +170,19 @@ export function HomeScreen() {
   const jumping = useRef(0);
 
   const sections = useMemo<Section[]>(() => {
-    const subName = (product: Product) => catalog?.subcategories?.find((sub) => sub.id === product.subcategory_id)?.name ?? '';
+    const subcategories = catalog?.subcategories ?? [];
+    const folderNames = (product: Product) => (product.path ?? []).map((id) => subcategories.find((sub) => sub.id === id)?.name ?? '');
     const products = (catalog?.products ?? []).filter((product) => product.in_stock);
     return (catalog?.categories ?? []).flatMap((category) => {
       const found = products.filter(
         (product) =>
           product.category_id === category.id &&
-          fuzzyMatch(search, [product.name, product.group, subName(product), category.name].filter(Boolean).join(' ')),
+          fuzzyMatch(search, [product.name, product.group, ...folderNames(product), category.name].filter(Boolean).join(' ')),
       );
       if (!found.length) return [];
-      // Спершу картки без підрозділу, далі підрозділи з підзаголовками в порядку адмінки.
-      const subs = (catalog?.subcategories ?? []).filter((sub) => sub.category_id === category.id);
-      const blocks: Block[] = [
-        { sub: null, cards: buildCards(found.filter((product) => !subs.some((sub) => sub.id === product.subcategory_id))) },
-        ...subs.map((sub) => ({ sub, cards: buildCards(found.filter((product) => product.subcategory_id === sub.id)) })),
-      ].filter((block) => block.cards.length);
-      return [{ id: category.id, name: category.name, blocks }];
+      // Під час пошуку знайдені товари видно одразу, без заходу в папку.
+      const cards = search.trim() ? buildCards(found) : buildCardsAt(found, subcategories);
+      return [{ id: category.id, name: category.name, cards }];
     });
   }, [catalog, search]);
 
@@ -294,20 +320,11 @@ export function HomeScreen() {
               <Text accessibilityRole="header" style={styles.sectionTitle}>
                 {section.name}
               </Text>
-              {section.blocks.map((block) => (
-                <View key={block.sub?.id ?? 0}>
-                  {!!block.sub && (
-                    <Text accessibilityRole="header" style={styles.subTitle}>
-                      {block.sub.name}
-                    </Text>
-                  )}
-                  <View style={styles.grid}>
-                    {block.cards.map((card) => (
-                      <ProductCard key={card.product.id} card={card} />
-                    ))}
-                  </View>
-                </View>
-              ))}
+              <View style={styles.grid}>
+                {section.cards.map((card) => (
+                  <ProductCard key={card.folder ? `folder-${card.folder.id}` : card.product.id} card={card} />
+                ))}
+              </View>
             </View>
           ))}
           {!sections.length && <Text style={styles.nothing}>Нічого не знайдено</Text>}
@@ -337,7 +354,6 @@ const styles = StyleSheet.create({
   // Заметний проміжок між категоріями: розділи не зливаються в один список.
   section: { paddingTop: 22 },
   sectionTitle: { fontSize: 20, lineHeight: 25, fontWeight: '600', color: colors.ink, paddingHorizontal: gutter, marginBottom: 10 },
-  subTitle: { fontSize: 17, lineHeight: 22, fontWeight: '500', color: colors.ink, paddingHorizontal: gutter, marginTop: 14, marginBottom: 8 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8, paddingHorizontal: gutter, paddingBottom: 6 },
   card: { width: '48.8%', borderWidth: 1, borderColor: colors.line, borderRadius: 12, overflow: 'hidden' },
   // Квадратне фото: висота дорівнює ширині картки.
@@ -351,3 +367,6 @@ const styles = StyleSheet.create({
   cardPrice: { fontSize: 15, fontWeight: '500', color: colors.ink, marginTop: 3, marginBottom: 5 },
   nothing: { textAlign: 'center', fontSize: 15, color: colors.text, paddingVertical: 24 },
 });
+
+/** Сітка карток — та сама на екрані папки. */
+export const cardGrid = styles.grid;

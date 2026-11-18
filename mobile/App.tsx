@@ -11,6 +11,7 @@ import { CartScreen } from './src/screens/CartScreen';
 import { CheckoutScreen } from './src/screens/CheckoutScreen';
 import { DeliveryScreen } from './src/screens/DeliveryScreen';
 import { FavoritesScreen } from './src/screens/FavoritesScreen';
+import { FolderScreen } from './src/screens/FolderScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { HotlineScreen } from './src/screens/HotlineScreen';
 import { InviteScreen } from './src/screens/InviteScreen';
@@ -30,6 +31,8 @@ function Screen({ route }: { route: Route }) {
       return <HomeScreen />;
     case 'product':
       return <ProductScreen key={route.productId} productId={route.productId} />;
+    case 'folder':
+      return <FolderScreen key={route.folderId} folderId={route.folderId} />;
     case 'cart':
       return <CartScreen />;
     case 'favorites':

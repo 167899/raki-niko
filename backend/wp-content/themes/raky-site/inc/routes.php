@@ -77,13 +77,10 @@ function raky_site_current(): array {
 		if ($category) {
 			return $current = ['type' => 'category', 'template' => 'category', 'category' => $category];
 		}
-		// Підрозділ показується на сторінці свого розділу: ведемо туди, одразу до підзаголовка.
-		if ($term instanceof WP_Term) {
-			foreach (raky_site_catalog()['subcategories'] as $sub) {
-				if ($sub['id'] === $term->term_id) {
-					return $current = ['type' => 'redirect', 'to' => raky_site_category_url($sub['category_id']) . '#sub-' . $sub['id']];
-				}
-			}
+		// Папка («Каліфорнія»): сторінка з її картками в оформленні категорії.
+		$sub = $term instanceof WP_Term ? raky_site_subcategory($term->term_id) : null;
+		if ($sub && raky_site_category($sub['category_id'])) {
+			return $current = ['type' => 'category', 'template' => 'category', 'category' => raky_site_category($sub['category_id']), 'folder' => $sub];
 		}
 		// Найглибша підкатегорія — це калібри одного товару: ведемо на сам товар.
 		if ($term instanceof WP_Term && $term->parent) {

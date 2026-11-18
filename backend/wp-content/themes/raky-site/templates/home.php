@@ -46,13 +46,17 @@ raky_site_part('header');
 	</div>
 
 	<?php foreach ($catalog['categories'] as $category) : ?>
-		<?php $blocks = raky_site_blocks($category['id']); ?>
-		<?php if (! $blocks) {
+		<?php $cards = raky_site_cards_at($category['id']); ?>
+		<?php if (! $cards) {
 			continue;
 		} ?>
 		<section class="section" id="cat-<?php echo (int) $category['id']; ?>" data-section="<?php echo (int) $category['id']; ?>">
 			<h2 class="section__title"><a href="<?php echo esc_url(raky_site_category_url($category['id'])); ?>"><?php echo esc_html($category['name']); ?></a></h2>
-			<?php raky_site_blocks_html($blocks, $eager); ?>
+			<div class="grid">
+				<?php foreach ($cards as $card) : ?>
+					<?php raky_site_part('card', ['card' => $card, 'eager' => $eager-- > 0]); ?>
+				<?php endforeach; ?>
+			</div>
 		</section>
 	<?php endforeach; ?>
 	<p class="nothing" data-nothing hidden>Нічого не знайдено</p>

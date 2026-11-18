@@ -1,6 +1,7 @@
 <?php
 /**
- * Картка товару в списку. Для підкатегорії — найдешевший калібр із «від».
+ * Картка товару в списку. Для підкатегорії — найдешевший калібр із «від»,
+ * для папки («Каліфорнія») — найдешевший товар у ній, а веде вона на сторінку папки.
  *
  * @var array $args ['card' => raky_site_cards()[n], 'eager' => bool]
  */
@@ -8,11 +9,13 @@ defined('ABSPATH') || exit;
 
 $card    = $args['card'];
 $product = $card['product'];
-$url     = raky_site_product_url($product['id']);
+$url     = $card['url'] ?? raky_site_product_url($product['id']);
 $slug    = raky_site_category($product['category_id'])['slug'] ?? '';
 ?>
 <article class="card" data-search="<?php echo esc_attr(raky_site_card_search($card)); ?>"<?php echo ! empty($args['fav_card']) ? ' data-fav-card="' . (int) $product['id'] . '" hidden' : ''; ?>>
-	<?php raky_site_part('heart', ['id' => $product['id']]); ?>
+	<?php if (empty($card['folder'])) {
+		raky_site_part('heart', ['id' => $product['id']]);
+	} ?>
 	<a class="card__pic" href="<?php echo esc_url($url); ?>" tabindex="-1" aria-hidden="true">
 		<?php if ($product['image']) : ?>
 			<img src="<?php echo esc_url($product['image']); ?>" alt="" width="300" height="300" <?php echo empty($args['eager']) ? 'loading="lazy"' : 'fetchpriority="high"'; ?> decoding="async">

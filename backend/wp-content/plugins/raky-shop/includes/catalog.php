@@ -109,20 +109,21 @@ function raky_product_addons(WC_Product $product): array {
 
 /**
  * Де товар стоїть у меню. Категорія верхнього рівня — розділ (вкладка зверху), найглибша категорія товару —
- * картка, що об'єднує калібри. Рівні між ними — підрозділи всередині розділу:
- * «Суші та роли» → «Каліфорнія» (підрозділ) → «Каліфорнія тунець» (картка) → товари-калібри.
+ * картка, що об'єднує калібри. Рівні між ними — підкатегорії-«папки»: у розділі це картка, а в ній — свої картки.
+ * «Суші та роли» → «Каліфорнія» (папка) → «Каліфорнія тунець» (картка) → товари-калібри.
  *
- * @return array{0: int, 1: string, 2: int} [ID розділу, назва картки, ID підрозділу або 0]
+ * @return array{0: int, 1: string, 2: int[]} [ID розділу, назва картки, ID папок від розділу вглиб]
  */
 function raky_product_placement(WC_Product $product): array {
 	$ids = $product->get_category_ids();
 	foreach ($ids as $id) {
 		$ancestors = get_ancestors($id, 'product_cat', 'taxonomy'); // від батька до верхньої категорії
 		if ($ancestors) {
-			return [(int) end($ancestors), get_term($id, 'product_cat')->name, count($ancestors) > 1 ? (int) $ancestors[0] : 0];
+			$top = (int) array_pop($ancestors);
+			return [$top, get_term($id, 'product_cat')->name, array_map('intval', array_reverse($ancestors))];
 		}
 	}
-	return [(int) ($ids[0] ?? 0), '', 0];
+	return [(int) ($ids[0] ?? 0), '', []];
 }
 
 /** Порядок категорії з перетягування в адмінці (поле order WooCommerce). */
@@ -131,20 +132,20 @@ function raky_category_order(int $term_id): int {
 }
 
 /**
- * Підрозділи для меню: назва — шлях від розділу без нього («Каліфорнія» чи «Каліфорнія · Гострі»),
- * порядок — як у дереві категорій адмінки.
+ * Папки для меню: parent — розділ або інша папка, порядок — як у дереві категорій адмінки.
  *
- * @return array<int, array{id: int, category_id: int, name: string}>
+ * @return array<int, array{id: int, category_id: int, parent: int, name: string}>
  */
 function raky_subcategories(array $ids): array {
 	$out = [];
 	foreach ($ids as $id) {
+		$term = get_term($id, 'product_cat');
 		$path = array_reverse(array_merge([$id], get_ancestors($id, 'product_cat', 'taxonomy'))); // від верхньої категорії
-		$top  = (int) array_shift($path);
 		$out[] = [
 			'id'          => $id,
-			'category_id' => $top,
-			'name'        => implode(' · ', array_map(static fn (int $term) => get_term($term, 'product_cat')->name, $path)),
+			'category_id' => (int) $path[0],
+			'parent'      => (int) $term->parent,
+			'name'        => $term->name,
 			'sort'        => array_map('raky_category_order', $path),
 		];
 	}
@@ -171,14 +172,14 @@ function raky_rest_catalog(): array {
 		if (raky_product_hidden($product)) {
 			continue;
 		}
-		[$category_id, $group, $subcategory_id] = raky_product_placement($product);
+		[$category_id, $group, $path] = raky_product_placement($product);
 		// Товари з «Без категорії» чекають на розподіл і клієнтам не показуються.
 		if (! $category_id || $category_id === raky_default_category()) {
 			continue;
 		}
 		$term_ids[$category_id] = true;
-		if ($subcategory_id) {
-			$sub_ids[$subcategory_id] = true;
+		foreach ($path as $folder) {
+			$sub_ids[$folder] = true;
 		}
 		$image   = wp_get_attachment_image_url($product->get_image_id(), 'woocommerce_thumbnail');
 		$large   = wp_get_attachment_image_url($product->get_image_id(), 'large');
@@ -188,7 +189,8 @@ function raky_rest_catalog(): array {
 			'name'        => $product->get_name(),
 			'description' => wp_strip_all_tags($product->get_short_description()),
 			'category_id' => $category_id,
-			'subcategory_id' => $subcategory_id,
+			// Папки від розділу вглиб: [«Каліфорнія»]. Порожньо — картка стоїть прямо в розділі.
+			'path'        => $path,
 			'price'       => (float) $product->get_price(),
 			'unit'        => raky_product_unit($product),
 			'step'        => raky_product_step($product),

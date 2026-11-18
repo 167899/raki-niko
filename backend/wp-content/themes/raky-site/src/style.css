@@ -903,20 +903,6 @@ input[aria-invalid='true'] {
   color: var(--red);
 }
 
-/* Підрозділи всередині розділу: «Суші та роли» → «Каліфорнія» */
-
-.subsection {
-  margin-top: 18px;
-  scroll-margin-top: 120px;
-}
-
-.subsection__title {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--ink);
-  margin-bottom: 8px;
-}
-
 /* Картки товарів */
 
 .grid {
@@ -2142,15 +2128,6 @@ fieldset.panel > .panel__title + * {
   .section__title {
     font-size: 22px;
     margin-bottom: 12px;
-  }
-
-  .subsection {
-    margin-top: 24px;
-  }
-
-  .subsection__title {
-    font-size: 18px;
-    margin-bottom: 10px;
   }
 
   .product {

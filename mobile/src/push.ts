@@ -51,7 +51,9 @@ const dataOf = (notification: Notifications.Notification) => (notification.reque
 /** onOpen — клієнт натиснув на сповіщення (і коли застосунок був закритий); onReceive — сповіщення прийшло, поки застосунок відкрито. */
 export function usePush(onOpen: (data: PushData) => void, onReceive: (data: PushData) => void) {
   const handlers = useRef({ onOpen, onReceive });
-  handlers.current = { onOpen, onReceive };
+  useEffect(() => {
+    handlers.current = { onOpen, onReceive };
+  });
   const last = supported ? Notifications.useLastNotificationResponse() : null;
 
   useEffect(() => {

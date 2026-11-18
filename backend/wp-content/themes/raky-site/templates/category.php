@@ -1,16 +1,17 @@
 <?php
-/** Категорія: підрозділи з підзаголовками, одна картка на найглибшу категорію (калібри обираються в товарі). */
+/** Категорія чи папка в ній («Суші та роли» → «Каліфорнія»): картки папок і по одній картці на калібри. */
 defined('ABSPATH') || exit;
 
 $category = raky_site_current()['category'];
-$blocks   = raky_site_blocks($category['id']);
+$folder   = raky_site_current()['folder'] ?? null;
+$cards    = raky_site_cards_at($category['id'], $folder['id'] ?? 0);
 $eager    = 4;
 
 raky_site_part('header');
 ?>
 <div class="wrap">
 	<?php raky_site_part('crumbs'); ?>
-	<h1 class="page-title"><?php echo esc_html($category['name']); ?></h1>
+	<h1 class="page-title"><?php echo esc_html($folder['name'] ?? $category['name']); ?></h1>
 	<div class="catbar" data-catbar>
 		<label class="search">
 			<?php echo raky_site_icon('search', 18); ?>
@@ -25,8 +26,12 @@ raky_site_part('header');
 		</nav>
 	</div>
 	<section class="section" data-section="<?php echo (int) $category['id']; ?>">
-		<?php if ($blocks) : ?>
-			<?php raky_site_blocks_html($blocks, $eager); ?>
+		<?php if ($cards) : ?>
+			<div class="grid">
+				<?php foreach ($cards as $card) : ?>
+					<?php raky_site_part('card', ['card' => $card, 'eager' => $eager-- > 0]); ?>
+				<?php endforeach; ?>
+			</div>
 		<?php else : ?>
 			<p class="nothing">Зараз у цій категорії немає товарів у наявності.</p>
 		<?php endif; ?>

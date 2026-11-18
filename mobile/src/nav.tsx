@@ -4,6 +4,7 @@ import { BackHandler } from 'react-native';
 export type Route =
   | { name: 'home' }
   | { name: 'product'; productId: number }
+  | { name: 'folder'; folderId: number }
   | { name: 'cart' }
   | { name: 'favorites' }
   | { name: 'checkout' }

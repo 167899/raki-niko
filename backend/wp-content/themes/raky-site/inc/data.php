@@ -75,37 +75,62 @@ function raky_site_cards(array $products): array {
 	return $cards;
 }
 
-/**
- * Картки розділу, розкладені по підрозділах: спершу картки без підрозділу, далі підрозділи в порядку адмінки.
- *
- * @return array<int, array{sub: ?array, cards: array}>
- */
-function raky_site_blocks(int $category_id): array {
-	$products = raky_site_products_in($category_id);
-	$blocks   = [['sub' => null, 'cards' => raky_site_cards(array_filter($products, static fn (array $item) => ! $item['subcategory_id']))]];
+function raky_site_subcategory(int $id): ?array {
 	foreach (raky_site_catalog()['subcategories'] as $sub) {
-		if ($sub['category_id'] === $category_id) {
-			$blocks[] = ['sub' => $sub, 'cards' => raky_site_cards(array_filter($products, static fn (array $item) => $item['subcategory_id'] === $sub['id']))];
+		if ($sub['id'] === $id) {
+			return $sub;
 		}
 	}
-	return array_values(array_filter($blocks, static fn (array $block) => $block['cards']));
+	return null;
 }
 
-/** Сітка карток розділу з підзаголовками підрозділів. $eager — скільки перших фото вантажити одразу. */
-function raky_site_blocks_html(array $blocks, int &$eager): void {
-	foreach ($blocks as $block) {
-		if ($block['sub']) {
-			printf('<div class="subsection" id="sub-%1$d" data-sub><h3 class="subsection__title">%2$s</h3>', (int) $block['sub']['id'], esc_html($block['sub']['name']));
-		}
-		echo '<div class="grid">';
-		foreach ($block['cards'] as $card) {
-			raky_site_part('card', ['card' => $card, 'eager' => $eager-- > 0]);
-		}
-		echo '</div>';
-		if ($block['sub']) {
-			echo '</div>';
-		}
+/** Папки від розділу до $id включно: для хлібних крихт. */
+function raky_site_folder_chain(int $id): array {
+	$chain = [];
+	for ($sub = raky_site_subcategory($id); $sub; $sub = raky_site_subcategory($sub['parent'])) {
+		array_unshift($chain, $sub);
 	}
+	return $chain;
+}
+
+/**
+ * Картки розділу чи папки в порядку товарів: папка («Каліфорнія») — картка, що веде на сторінку з її картками,
+ * найглибша категорія — картка калібрів, як і раніше.
+ *
+ * @return array<int, array{product: array, title: string, from: bool, members: array, folder?: array, url?: string}>
+ */
+function raky_site_cards_at(int $category_id, int $folder = 0): array {
+	$entries = [];
+	foreach (raky_site_products_in($category_id) as $product) {
+		$path = $product['path'] ?? [];
+		if ($folder) {
+			$at = array_search($folder, $path, true);
+			if ($at === false) {
+				continue;
+			}
+			$path = array_slice($path, $at + 1);
+		}
+		$key             = $path ? 'f:' . $path[0] : ($product['group'] !== '' ? 'g:' . $product['group'] : 'p:' . $product['id']);
+		$entries[$key][] = $product;
+	}
+	$cards = [];
+	foreach ($entries as $key => $members) {
+		$sub = str_starts_with($key, 'f:') ? raky_site_subcategory((int) substr($key, 2)) : null;
+		if (! $sub) {
+			$cards[] = raky_site_cards($members)[0];
+			continue;
+		}
+		$cheapest = array_reduce($members, static fn (?array $best, array $item) => $best === null || $item['price'] < $best['price'] ? $item : $best);
+		$cards[]  = [
+			'product' => $cheapest,
+			'title'   => $sub['name'],
+			'from'    => count($members) > 1,
+			'members' => $members,
+			'folder'  => $sub,
+			'url'     => raky_site_category_url($sub['id']),
+		];
+	}
+	return $cards;
 }
 
 /** Калібри товару: товари тієї ж підкатегорії в наявності, від дешевшого. */
@@ -135,10 +160,8 @@ function raky_site_card_search(array $card): string {
 	$category = raky_site_category($card['product']['category_id']);
 	$words    = array_map(static fn (array $item) => $item['name'], $card['members']);
 	$words[]  = $card['product']['group'];
-	foreach (raky_site_catalog()['subcategories'] as $sub) {
-		if ($sub['id'] === $card['product']['subcategory_id']) {
-			$words[] = $sub['name'];
-		}
+	foreach ($card['product']['path'] ?? [] as $folder) {
+		$words[] = raky_site_subcategory($folder)['name'] ?? '';
 	}
 	$words[]  = $category['name'] ?? '';
 	return implode(' ', array_filter($words));

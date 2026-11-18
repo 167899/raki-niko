@@ -20,10 +20,6 @@ export function initSearch() {
         if (match) inSection++;
       });
       section.hidden = inSection === 0 && !!query.trim();
-      // Підзаголовок підрозділу без знайдених карток теж ховаємо.
-      section.querySelectorAll<HTMLElement>('[data-sub]').forEach((sub) => {
-        sub.hidden = !!query.trim() && !sub.querySelector('.card[data-search]:not([hidden])');
-      });
       shown += inSection;
     });
     if (nothing) nothing.hidden = shown > 0 || !query.trim();

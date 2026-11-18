@@ -26,10 +26,12 @@ function raky_site_meta(): array {
 	switch ($current['type']) {
 		case 'category':
 			$category            = $current['category'];
-			$prices              = array_column(raky_site_products_in($category['id']), 'price');
-			$meta['title']       = $category['name'] . ' у Миколаєві — купити з доставкою | ' . RAKY_SITE_NAME;
-			$meta['description'] = $category['name'] . ' в Raki Niko' . ($prices ? ' від ' . raky_site_money(min($prices)) : '') . '. Доставка по Миколаєву або самовивіз.';
-			$meta['canonical']   = raky_site_category_url($category['id']);
+			$folder              = $current['folder'] ?? null;
+			$name                = $folder['name'] ?? $category['name'];
+			$prices              = array_column(array_column(raky_site_cards_at($category['id'], $folder['id'] ?? 0), 'product'), 'price');
+			$meta['title']       = $name . ' у Миколаєві — купити з доставкою | ' . RAKY_SITE_NAME;
+			$meta['description'] = $name . ' в Raki Niko' . ($prices ? ' від ' . raky_site_money(min($prices)) : '') . '. Доставка по Миколаєву або самовивіз.';
+			$meta['canonical']   = raky_site_category_url($folder['id'] ?? $category['id']);
 			break;
 		case 'product':
 			$product             = $current['product'];
@@ -179,11 +181,20 @@ function raky_site_breadcrumbs(): array {
 	$crumbs  = [['Головна', home_url('/')]];
 	if ($current['type'] === 'category') {
 		$crumbs[] = [$current['category']['name'], raky_site_category_url($current['category']['id'])];
+		foreach (isset($current['folder']) ? raky_site_folder_chain($current['folder']['id']) : [] as $sub) {
+			$crumbs[] = [$sub['name'], raky_site_category_url($sub['id'])];
+		}
 	}
 	if ($current['type'] === 'product') {
 		$category = raky_site_category($current['product']['category_id']);
 		if ($category) {
 			$crumbs[] = [$category['name'], raky_site_category_url($category['id'])];
+		}
+		foreach ($current['product']['path'] ?? [] as $folder) {
+			$sub = raky_site_subcategory($folder);
+			if ($sub) {
+				$crumbs[] = [$sub['name'], raky_site_category_url($sub['id'])];
+			}
 		}
 		$crumbs[] = [$current['product']['name'], raky_site_product_url($current['product']['id'])];
 	}

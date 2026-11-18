@@ -22,8 +22,8 @@ export type Product = {
   name: string;
   description: string;
   category_id: number;
-  /** Підрозділ усередині категорії («Суші та роли» → «Каліфорнія»), 0 — без підрозділу. Старий сервер поле не надсилає. */
-  subcategory_id?: number;
+  /** Папки від категорії вглиб («Суші та роли» → [«Каліфорнія»]); порожньо — картка прямо в категорії. Старий сервер поле не надсилає. */
+  path?: number[];
   price: number;
   unit: Unit;
   step: number;
@@ -40,8 +40,8 @@ export type Product = {
   addons?: Addon[];
 };
 
-/** name — шлях від категорії без неї: «Каліфорнія» чи «Каліфорнія · Гострі». Порядок — як в адмінці. */
-export type Subcategory = { id: number; category_id: number; name: string };
+/** Папка всередині категорії: у меню це картка, що відкриває свої картки. parent — категорія чи інша папка. */
+export type Subcategory = { id: number; category_id: number; parent: number; name: string };
 
 export type Catalog = { categories: Category[]; subcategories?: Subcategory[]; products: Product[] };
 
