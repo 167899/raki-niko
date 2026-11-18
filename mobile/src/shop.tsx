@@ -3,6 +3,7 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, 
 import { AddonCounts, api, ApiError, Banner, Catalog, Config, News, Order, OrderItem, OrderStatusCode, Product, Referral } from './api';
 import { phoneDigits } from './format';
 import { linesFromOrder } from './orderLines';
+import { getPushToken } from './push';
 
 /** addons: «Додатково» до цього рядка, назва → штук. Старі записи кошика поля не мають. */
 export type CartLine = { productId: number; flavor: string; quantity: number; addons?: AddonCounts };
@@ -354,6 +355,18 @@ function useShopState() {
     setOrderDetails((current) => ({ ...current, ...Object.fromEntries(fresh.map((order) => [order.id, order])) }));
     setOrdersChecked(true);
   }, [savedOrders, setNotes, session, setSession, setSavedOrders]);
+
+  // Push-сповіщення: токен телефону разом із замовленнями цього пристрою та підтвердженим номером.
+  const [pushToken, setPushToken] = useState<string | null>(null);
+  useEffect(() => {
+    if (restored) getPushToken().then(setPushToken);
+  }, [restored]);
+  const sessionKey = session?.session;
+  useEffect(() => {
+    if (!pushToken) return;
+    const tracked = savedOrders.slice(0, 50).map(({ id, key }) => ({ id, key }));
+    api.registerPush(pushToken, tracked, sessionKey).catch(() => undefined);
+  }, [pushToken, savedOrders, sessionKey]);
 
   useEffect(() => {
     if (!restored || (!savedOrders.length && !session)) return;

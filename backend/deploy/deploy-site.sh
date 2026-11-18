@@ -33,6 +33,17 @@ COPYFILE_DISABLE=1 tar --no-xattrs -C "$THEME" \
   -czf - . |
   ssh "$HOST" "set -e; cd $WP_PATH/wp-content/themes; rm -rf raky-site.new raky-site.old; mkdir raky-site.new; tar -xzf - -C raky-site.new; [ ! -d raky-site ] || mv raky-site raky-site.old; mv raky-site.new raky-site; rm -rf raky-site.old"
 
+echo "Кеш у браузері на рік для файлів з незмінними іменами (збірка теми з хешем у назві, завантажені картинки)…"
+# Сервер за замовчуванням дає 7 днів. Імена цих файлів при зміні вмісту змінюються, тож довгий кеш безпечний.
+CACHE_RULES='# BEGIN RAKY CACHE
+<IfModule mod_headers.c>
+<FilesMatch "\.(js|css|jpe?g|png|webp|avif|gif|svg|woff2?)$">
+Header set Cache-Control "public, max-age=31536000, immutable"
+</FilesMatch>
+</IfModule>
+# END RAKY CACHE'
+ssh "$HOST" "set -e; cd $WP_PATH/wp-content; printf '%s\n' '$CACHE_RULES' > themes/raky-site/dist/.htaccess; touch uploads/.htaccess; grep -q 'BEGIN RAKY CACHE' uploads/.htaccess || printf '\n%s\n' '$CACHE_RULES' >> uploads/.htaccess"
+
 echo "Викладаю плагін адрес латиницею…"
 COPYFILE_DISABLE=1 tar --no-xattrs -C wp-content/plugins -czf - raky-latin-slugs |
   ssh "$HOST" "set -e; cd $WP_PATH/wp-content/plugins; rm -rf raky-latin-slugs.new; mkdir raky-latin-slugs.new; tar -xzf - -C raky-latin-slugs.new; rm -rf raky-latin-slugs; mv raky-latin-slugs.new/raky-latin-slugs raky-latin-slugs; rm -rf raky-latin-slugs.new"

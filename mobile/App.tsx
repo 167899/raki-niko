@@ -5,6 +5,7 @@ import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-na
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Overlays } from './src/components/Overlays';
 import { NavProvider, Route, useNav } from './src/nav';
+import { usePush } from './src/push';
 import { AboutScreen } from './src/screens/AboutScreen';
 import { CartScreen } from './src/screens/CartScreen';
 import { CheckoutScreen } from './src/screens/CheckoutScreen';
@@ -67,8 +68,19 @@ const SPLASH_MAX_MS = 6000;
 
 function Main() {
   const nav = useNav();
-  const { catalog, loadError } = useShop();
+  const { catalog, loadError, refreshOrders, reload } = useShop();
   const ready = !!catalog || !!loadError;
+  usePush(
+    (data) => {
+      if (data.type === 'order') nav.reset([{ name: 'home' }, { name: 'orders' }]);
+      else if (data.type === 'news') nav.reset([{ name: 'home' }, { name: 'notifications' }]);
+    },
+    // Новий статус чи новина одразу видно в «Моїх замовленнях» і «Повідомленнях».
+    (data) => {
+      if (data.type === 'order') refreshOrders();
+      else if (data.type === 'news') reload();
+    },
+  );
   useEffect(() => {
     // Повільний інтернет не тримає заставку довше за SPLASH_MAX_MS: далі видно звичайне завантаження.
     const timer = setTimeout(() => SplashScreen.hideAsync().catch(() => undefined), ready ? 0 : SPLASH_MAX_MS);

@@ -189,4 +189,5 @@ export const demoApi: Api = {
     throw new ApiError('Увійдіть через Telegram ще раз.', 'raky_auth_required', 401);
   },
   logout: async () => ({ ok: true }),
+  registerPush: async () => ({ ok: true }),
 };

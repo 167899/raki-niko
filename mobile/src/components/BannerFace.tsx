@@ -1,9 +1,32 @@
+import { useEffect, useState } from 'react';
 import { Image, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import type { Banner } from '../api';
 import { colors } from '../theme';
 
-/** Пропорції картинки банера: в адмінці радимо 1200×340. */
+/** Пропорції картинки банера, поки справжні не відомі: в адмінці радимо 1200×340. */
 export const BANNER_RATIO = 1200 / 340;
+
+/** Справжні пропорції картинок банерів (ширина / висота), щоб показувати їх цілком, без обрізання країв. */
+export function useBannerRatios(banners: Banner[]): Record<number, number> {
+  const [ratios, setRatios] = useState<Record<number, number>>({});
+  useEffect(() => {
+    let current = true;
+    for (const banner of banners) {
+      if (!banner.image) continue;
+      Image.getSize(
+        banner.image,
+        (width, height) => {
+          if (current && width > 0 && height > 0) setRatios((known) => ({ ...known, [banner.id]: width / height }));
+        },
+        () => undefined,
+      );
+    }
+    return () => {
+      current = false;
+    };
+  }, [banners]);
+  return ratios;
+}
 
 /**
  * Лицьова сторона банера: колір або картинка й ті написи, що ввімкнені в адмінці.
@@ -17,7 +40,7 @@ export function BannerFace({ banner, style, withSubtitle = true }: { banner: Ban
   const text = label || title || subtitle;
   return (
     <View style={[styles.face, { backgroundColor: banner.color || colors.red }, style]}>
-      {banner.image && <Image source={{ uri: banner.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
+      {banner.image && <Image source={{ uri: banner.image }} style={StyleSheet.absoluteFill} resizeMode="contain" />}
       {/* Затемнення, щоб білий текст читався на будь-якій картинці. */}
       {banner.image && text && <View style={[StyleSheet.absoluteFill, styles.shade]} />}
       {label && <Text style={styles.small}>{banner.label}</Text>}

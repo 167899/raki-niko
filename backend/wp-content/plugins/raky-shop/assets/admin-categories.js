@@ -39,7 +39,25 @@ jQuery(function ($) {
 			});
 		});
 	}
-	// Після додавання WordPress дублює батьківську категорію зверху: переносимо нову підкатегорію в наявну.
+	// Переносить у наявний рядок гілки, яких у ньому ще немає, на будь-якій глибині. Позначки наявних рядків не змінюються.
+	function mergeInto(target, source) {
+		source.children('ul.children').children('li').each(function () {
+			var child = $(this);
+			var value = child.find('> label input').val();
+			var list = target.children('ul.children');
+			if (!list.length) list = $('<ul class="children"></ul>').appendTo(target);
+			var same = list.children('li').filter(function () {
+				return $(this).find('> label input').val() === value;
+			});
+			if (same.length) {
+				mergeInto(same.first(), child);
+				if (child.find('> label input').prop('checked')) same.first().find('> label input').prop('checked', true);
+			} else {
+				child.appendTo(list);
+			}
+		});
+	}
+	// Після додавання підкатегорії WordPress дублює зверху всю гілку від верхньої категорії: переносимо нове в наявну.
 	function mergeDuplicates() {
 		var rows = {};
 		$('#product_catchecklist > li').get().reverse().forEach(function (element) {
@@ -49,12 +67,7 @@ jQuery(function ($) {
 				rows[id] = row;
 				return;
 			}
-			var list = rows[id].children('ul.children');
-			if (!list.length) list = $('<ul class="children"></ul>').appendTo(rows[id]);
-			row.children('ul.children').children('li').each(function () {
-				var value = $(this).find('> label input').val();
-				if (!list.find('> li > label input[value="' + value + '"]').length) $(this).appendTo(list);
-			});
+			mergeInto(rows[id], row);
 			row.remove();
 		});
 	}
@@ -75,10 +88,9 @@ jQuery(function ($) {
 					.insertAfter(row.children('label').first());
 			}
 			var actions = $('<div class="raky-row-actions" style="margin:2px 0 6px 24px;font-size:12px"></div>');
-			if (row.parent().is('#product_catchecklist')) {
-				$('<button type="button" class="button-link raky-add-sub" style="margin-right:10px;font-size:12px"></button>').text('+ Додати підкатегорію').data('term', id).appendTo(actions);
-			}
+			// Підкатегорію можна додати на будь-якому рівні: категорія → підкатегорія → її підкатегорія…
 			if (id !== defaultCategory) {
+				$('<button type="button" class="button-link raky-add-sub" style="margin-right:10px;font-size:12px"></button>').text('+ Додати підкатегорію').data('term', id).appendTo(actions);
 				$('<button type="button" class="button-link button-link-delete raky-delete" style="font-size:12px"></button>').text('× Видалити').data('term', id).appendTo(actions);
 			}
 			// Кнопки — окремим рядком під назвою й олівцем.

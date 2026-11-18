@@ -1,6 +1,6 @@
 <?php
 /**
- * Сторінка «Сайт» в адмінці: контакти, тексти, колір акценту, коди реклами й аналітики.
+ * Сторінка «Сайт» в адмінці: контакти, тексти, колір акценту, фон сайту, коди реклами й аналітики.
  * Усе зберігається в одній опції raky_site. Порожнє поле — береться типове значення з raky_site_defaults().
  * Застосунок ці налаштування не читає: його тексти задані в mobile/src/content.ts.
  * Телефони й соцмережі (розділ «Контакти») спільні із застосунком: зберігаються в плагіні (raky_save_contacts), застосунок бере їх з /config.
@@ -27,6 +27,24 @@ function raky_site_defaults(): array {
 		'offer'     => "Продавець\nДані ФОП буде додано.\n\nЗамовлення\nЗамовлення діє після підтвердження менеджером. Вага й сума можуть бути уточнені до оплати.\n\nЦіна й оплата\nОплата за реквізитами після підтвердження замовлення або готівкою при отриманні.\n\nДоставка й самовивіз\nДоставка в зонах обслуговування або самовивіз із точок продажу.\n\nПовернення\nУмови буде додано.",
 		'legal_ok'  => '',
 		'accent'    => RAKY_SITE_ACCENT,
+		'bg_mode'   => 'none',
+		'bg_color'  => '#F4F1EE',
+		'bg_image'  => '',
+		'bg_scroll' => 'fixed',
+		'bg_layer'  => 'none',
+		'bg_layer_color'    => '#FFFFFF',
+		'bg_layer_opacity'  => '60',
+		'bg_layer_color2'   => '#FFFFFF',
+		'bg_layer_opacity2' => '95',
+		'bg_layer_dir'      => 'to bottom',
+		'bg_text'           => 'auto',
+		'bg_text_color'     => '#111111',
+		'header_bg'         => '#FFFFFF',
+		'header_text'       => 'auto',
+		'header_text_color' => '#111111',
+		'footer_bg'         => '#FAFAFA',
+		'footer_text'       => 'auto',
+		'footer_text_color' => '#111111',
 		'gtm'       => '',
 		'pixel'     => '',
 		'gsc'       => '',
@@ -81,6 +99,29 @@ function raky_site_fields(): array {
 		'Вигляд' => [
 			'accent' => ['Колір акценту', 'color', 'Кнопки, ціни, позначки. Фірмовий — ' . RAKY_SITE_ACCENT . ', як у застосунку.'],
 		],
+		// 4-й елемент — варіанти списку; 5-й — коли показувати поле: [інше поле => 'значення,значення'].
+		'Фон сайту' => [
+			'bg_mode'           => ['Фон', 'select', 'Фон усього сайту під шапкою, картками й низом сторінки.', ['none' => 'Звичайний білий', 'color' => 'Колір', 'image' => 'Картинка']],
+			'bg_color'          => ['Колір фону', 'color', 'Для картинки — колір, який видно, поки вона завантажується.', null, ['bg_mode' => 'color,image']],
+			'bg_image'          => ['Картинка', 'image', 'Краще горизонтальна, від 1920 пікселів завширшки, до 500 КБ. На телефоні показується середина картинки.', null, ['bg_mode' => 'image']],
+			'bg_scroll'         => ['Картинка під час прокручування', 'select', '', ['fixed' => 'Стоїть на місці', 'scroll' => 'Прокручується разом зі сторінкою'], ['bg_mode' => 'image']],
+			'bg_layer'          => ['Накладання поверх картинки', 'select', 'Щоб текст на фоні добре читався.', ['none' => 'Без накладання', 'color' => 'Колір із прозорістю', 'gradient' => 'Градієнт'], ['bg_mode' => 'image']],
+			'bg_layer_color'    => ['Колір накладання', 'color', 'Для градієнта — його перший колір.', null, ['bg_mode' => 'image', 'bg_layer' => 'color,gradient']],
+			'bg_layer_opacity'  => ['Непрозорість, %', 'percent', '0 — картинку видно повністю, 100 — суцільний колір.', null, ['bg_mode' => 'image', 'bg_layer' => 'color,gradient']],
+			'bg_layer_color2'   => ['Другий колір градієнта', 'color', '', null, ['bg_mode' => 'image', 'bg_layer' => 'gradient']],
+			'bg_layer_opacity2' => ['Непрозорість другого кольору, %', 'percent', '', null, ['bg_mode' => 'image', 'bg_layer' => 'gradient']],
+			'bg_layer_dir'      => ['Напрямок градієнта', 'select', '', ['to bottom' => 'Згори вниз', 'to top' => 'Знизу вгору', 'to right' => 'Зліва направо', '135deg' => 'По діагоналі'], ['bg_mode' => 'image', 'bg_layer' => 'gradient']],
+			'bg_text'           => ['Колір тексту на фоні', 'select', 'Заголовки й підписи просто на фоні. Текст у білих картках, полях і кнопках лишається темним.', ['auto' => 'Автоматично: світлий на темному, темний на світлому', 'custom' => 'Свій колір'], ['bg_mode' => 'color,image']],
+			'bg_text_color'     => ['Свій колір тексту', 'color', '', null, ['bg_mode' => 'color,image', 'bg_text' => 'custom']],
+		],
+		'Шапка й низ сайту' => [
+			'header_bg'         => ['Колір шапки', 'color', 'Верхня смуга з логотипом, меню й кошиком.'],
+			'header_text'       => ['Текст і значки шапки', 'select', '', ['auto' => 'Автоматично: світлий на темному, темний на світлому', 'custom' => 'Свій колір']],
+			'header_text_color' => ['Свій колір тексту шапки', 'color', '', null, ['header_text' => 'custom']],
+			'footer_bg'         => ['Колір низу сайту', 'color', 'Блок з меню, контактами й соцмережами внизу сторінки.'],
+			'footer_text'       => ['Текст і значки низу', 'select', '', ['auto' => 'Автоматично: світлий на темному, темний на світлому', 'custom' => 'Свій колір']],
+			'footer_text_color' => ['Свій колір тексту низу', 'color', '', null, ['footer_text' => 'custom']],
+		],
 		'Реклама й аналітика' => [
 			'gtm'   => ['Google Tag Manager', 'text', 'Ідентифікатор контейнера, наприклад GTM-ABC1234. Через нього підключаються GA4 і Google Ads.'],
 			'pixel' => ['Meta Pixel', 'text', 'Ідентифікатор пікселя (лише цифри) для реклами у Facebook та Instagram.'],
@@ -93,9 +134,19 @@ function raky_site_sanitize($input): array {
 	$input = is_array($input) ? wp_unslash($input) : [];
 	$out   = [];
 	foreach (raky_site_fields() as $fields) {
-		foreach ($fields as $key => [, $type]) {
+		foreach ($fields as $key => $field) {
+			$type  = $field[1];
 			$value = (string) ($input[$key] ?? '');
 			switch ($type) {
+				case 'select':
+					$value = array_key_exists($value, $field[3]) ? $value : (string) raky_site_defaults()[$key];
+					break;
+				case 'image':
+					$value = esc_url_raw(trim($value), ['https', 'http']);
+					break;
+				case 'percent':
+					$value = is_numeric(trim($value)) ? (string) max(0, min(100, (int) $value)) : (string) raky_site_defaults()[$key];
+					break;
 				case 'url':
 					$value = esc_url_raw(trim($value), ['https', 'http', 'viber', 'tg']);
 					break;
@@ -103,7 +154,7 @@ function raky_site_sanitize($input): array {
 					$value = $value !== '' ? '1' : '';
 					break;
 				case 'color':
-					$value = preg_match('/^#[0-9a-f]{6}$/i', trim($value)) ? strtoupper(trim($value)) : RAKY_SITE_ACCENT;
+					$value = preg_match('/^#[0-9a-f]{6}$/i', trim($value)) ? strtoupper(trim($value)) : (string) (raky_site_defaults()[$key] ?? RAKY_SITE_ACCENT);
 					break;
 				case 'textarea':
 				case 'legal':
@@ -122,6 +173,9 @@ function raky_site_sanitize($input): array {
 		if ($error !== null) {
 			add_settings_error('raky_site', 'raky-contacts', $error);
 		}
+	}
+	if ($out['bg_mode'] === 'image' && $out['bg_image'] === '') {
+		add_settings_error('raky_site', 'raky-bg', 'Фон сайту: оберіть картинку. Поки її немає, фон лишається звичайним білим.', 'warning');
 	}
 	$checks = [
 		'gtm'   => ['/^GTM-[A-Z0-9]+$/', 'Google Tag Manager: ідентифікатор має бути у вигляді GTM-ABC1234.'],
@@ -153,7 +207,33 @@ add_action('admin_enqueue_scripts', static function (string $hook) {
 	if ($hook === 'toplevel_page_raky-site') {
 		wp_enqueue_style('wp-color-picker');
 		wp_enqueue_script('wp-color-picker');
-		wp_add_inline_script('wp-color-picker', 'jQuery(function($){$(".raky-color").wpColorPicker();});');
+		wp_enqueue_media();
+		wp_add_inline_script('wp-color-picker', <<<'JS'
+jQuery(function ($) {
+	$('.raky-color').wpColorPicker();
+	// Поля фону показуємо лише тоді, коли вони потрібні (data-when: {"поле": "значення,значення"}).
+	const sync = () => $('tr[data-when]').each(function () {
+		const when = $(this).data('when');
+		$(this).toggle(Object.keys(when).every((key) => String(when[key]).split(',').includes($('[name="raky_site[' + key + ']"]').val())));
+	});
+	$(document).on('change', 'select[name^="raky_site["]', sync);
+	sync();
+	// Вибір картинки з медіабібліотеки.
+	$('.raky-image').each(function () {
+		const box = $(this), input = box.find('input'), preview = box.find('img');
+		const paint = () => { preview.attr('src', input.val()).toggle(!!input.val()); box.find('.raky-image-clear').toggle(!!input.val()); };
+		box.find('.raky-image-pick').on('click', (event) => {
+			event.preventDefault();
+			const frame = wp.media({ title: 'Картинка для фону сайту', button: { text: 'Обрати' }, library: { type: 'image' }, multiple: false });
+			frame.on('select', () => { input.val(frame.state().get('selection').first().toJSON().url); paint(); });
+			frame.open();
+		});
+		box.find('.raky-image-clear').on('click', (event) => { event.preventDefault(); input.val(''); paint(); });
+		paint();
+	});
+});
+JS
+		);
 	}
 });
 
@@ -176,12 +256,13 @@ function raky_site_settings_page(): void {
 					<p>Кожен розділ — окремий абзац через порожній рядок. Перший рядок абзацу — заголовок розділу.</p>
 				<?php endif; ?>
 				<table class="form-table" role="presentation">
-					<?php foreach ($fields as $key => [$label, $type, $help]) :
+					<?php foreach ($fields as $key => $field) :
+						[$label, $type, $help] = $field;
 						$id    = 'raky-site-' . $key;
 						$name  = 'raky_site[' . $key . ']';
 						$value = (string) ($saved[$key] ?? raky_site_defaults()[$key]);
 						?>
-						<tr>
+						<tr<?php echo ! empty($field[4]) ? ' data-when="' . esc_attr(wp_json_encode($field[4])) . '"' : ''; ?>>
 							<th scope="row"><label for="<?php echo esc_attr($id); ?>"><?php echo esc_html($label); ?></label></th>
 							<td>
 								<?php if ($type === 'textarea' || $type === 'legal') : ?>
@@ -189,7 +270,21 @@ function raky_site_settings_page(): void {
 								<?php elseif ($type === 'checkbox') : ?>
 									<label><input id="<?php echo esc_attr($id); ?>" type="checkbox" name="<?php echo esc_attr($name); ?>" value="1" <?php checked($value, '1'); ?>> Так</label>
 								<?php elseif ($type === 'color') : ?>
-									<input id="<?php echo esc_attr($id); ?>" type="text" name="<?php echo esc_attr($name); ?>" value="<?php echo esc_attr($value); ?>" class="raky-color" data-default-color="<?php echo esc_attr(RAKY_SITE_ACCENT); ?>">
+									<input id="<?php echo esc_attr($id); ?>" type="text" name="<?php echo esc_attr($name); ?>" value="<?php echo esc_attr($value); ?>" class="raky-color" data-default-color="<?php echo esc_attr(raky_site_defaults()[$key]); ?>">
+								<?php elseif ($type === 'select') : ?>
+									<select id="<?php echo esc_attr($id); ?>" name="<?php echo esc_attr($name); ?>">
+										<?php foreach ($field[3] as $option => $text) : ?>
+											<option value="<?php echo esc_attr($option); ?>" <?php selected($value, (string) $option); ?>><?php echo esc_html($text); ?></option>
+										<?php endforeach; ?>
+									</select>
+								<?php elseif ($type === 'percent') : ?>
+									<input id="<?php echo esc_attr($id); ?>" type="number" min="0" max="100" step="5" name="<?php echo esc_attr($name); ?>" value="<?php echo esc_attr($value); ?>" class="small-text"> %
+								<?php elseif ($type === 'image') : ?>
+									<div class="raky-image">
+										<input id="<?php echo esc_attr($id); ?>" type="hidden" name="<?php echo esc_attr($name); ?>" value="<?php echo esc_attr($value); ?>">
+										<img src="" alt="" style="display:none;max-width:320px;max-height:180px;border-radius:6px;margin-bottom:8px">
+										<p><button type="button" class="button raky-image-pick">Обрати картинку</button> <button type="button" class="button-link raky-image-clear" style="display:none">Прибрати</button></p>
+									</div>
 								<?php else : ?>
 									<input id="<?php echo esc_attr($id); ?>" type="<?php echo $type === 'url' ? 'url' : 'text'; ?>" name="<?php echo esc_attr($name); ?>" value="<?php echo esc_attr($value); ?>" class="regular-text">
 								<?php endif; ?>
@@ -231,6 +326,198 @@ add_action('wp_head', static function () {
 		);
 	}
 }, 20);
+
+/** rgba() з #RRGGBB і непрозорості у відсотках. */
+function raky_site_rgba(string $hex, string $percent): string {
+	[$r, $g, $b] = array_map('hexdec', str_split(ltrim($hex, '#'), 2));
+	return sprintf('rgba(%d,%d,%d,%s)', $r, $g, $b, round(max(0, min(100, (int) $percent)) / 100, 2));
+}
+
+/** Відносна яскравість кольору за WCAG (0 — чорний, 1 — білий). */
+function raky_site_luminance(array $rgb): float {
+	$channel = static function (float $value): float {
+		$value /= 255;
+		return $value <= 0.03928 ? $value / 12.92 : (($value + 0.055) / 1.055) ** 2.4;
+	};
+	return 0.2126 * $channel($rgb[0]) + 0.7152 * $channel($rgb[1]) + 0.0722 * $channel($rgb[2]);
+}
+
+/** @return int[] [r, g, b] */
+function raky_site_rgb(string $hex): array {
+	return array_map('hexdec', str_split(ltrim($hex, '#'), 2));
+}
+
+function raky_site_hex(array $rgb): string {
+	return vsprintf('#%02X%02X%02X', array_map(static fn ($value) => max(0, min(255, (int) round($value))), $rgb));
+}
+
+/** Колір a поверх b з непрозорістю alpha (0…1). */
+function raky_site_mix(array $a, array $b, float $alpha): array {
+	return [$a[0] * $alpha + $b[0] * (1 - $alpha), $a[1] * $alpha + $b[1] * (1 - $alpha), $a[2] * $alpha + $b[2] * (1 - $alpha)];
+}
+
+/**
+ * Середній колір картинки (зменшуємо до 1×1 піксела). Рахуємо раз і запам'ятовуємо.
+ * @return int[]|null
+ */
+function raky_site_image_average(string $url): ?array {
+	$key    = 'raky_bg_avg_' . md5($url);
+	$cached = get_transient($key);
+	if (is_array($cached)) {
+		return $cached;
+	}
+	$id   = attachment_url_to_postid($url);
+	$file = $id ? get_attached_file($id) : '';
+	if (! $file || ! is_readable($file) || ! function_exists('imagecreatefromstring')) {
+		return null;
+	}
+	$image = @imagecreatefromstring((string) file_get_contents($file));
+	if (! $image) {
+		return null;
+	}
+	$dot = imagecreatetruecolor(1, 1);
+	imagecopyresampled($dot, $image, 0, 0, 0, 0, 1, 1, imagesx($image), imagesy($image));
+	$color = imagecolorat($dot, 0, 0);
+	$rgb   = [($color >> 16) & 0xFF, ($color >> 8) & 0xFF, $color & 0xFF];
+	set_transient($key, $rgb, MONTH_IN_SECONDS);
+	return $rgb;
+}
+
+/** Колір, який око бачить на фоні сторінки: колір або картинка разом із накладанням. */
+function raky_site_background_rgb(): ?array {
+	$mode = raky_site_opt('bg_mode');
+	if ($mode === 'color') {
+		return raky_site_rgb(raky_site_opt('bg_color'));
+	}
+	if ($mode !== 'image' || raky_site_opt('bg_image') === '') {
+		return null;
+	}
+	$rgb = raky_site_image_average(raky_site_opt('bg_image')) ?? raky_site_rgb(raky_site_opt('bg_color'));
+	switch (raky_site_opt('bg_layer')) {
+		case 'color':
+			return raky_site_mix(raky_site_rgb(raky_site_opt('bg_layer_color')), $rgb, (int) raky_site_opt('bg_layer_opacity') / 100);
+		case 'gradient':
+			// Середина градієнта: обидва кольори порівну.
+			$first  = raky_site_mix(raky_site_rgb(raky_site_opt('bg_layer_color')), $rgb, (int) raky_site_opt('bg_layer_opacity') / 100);
+			$second = raky_site_mix(raky_site_rgb(raky_site_opt('bg_layer_color2')), $rgb, (int) raky_site_opt('bg_layer_opacity2') / 100);
+			return raky_site_mix($first, $second, 0.5);
+	}
+	return $rgb;
+}
+
+/**
+ * Змінні тексту для області з фоном $bg: --ink (заголовки) і --text (звичайний, трохи м'якший).
+ * $mode 'auto' — білий чи темний, що контрастніший; 'custom' — свій колір.
+ */
+function raky_site_text_vars(array $bg, string $mode, string $custom): string {
+	if ($mode === 'custom') {
+		$ink = raky_site_rgb($custom);
+	} else {
+		$light = raky_site_luminance($bg);
+		// Контраст із білим (1.05 / (L + 0.05)) проти контрасту з темним (#111111).
+		$ink = 1.05 / ($light + 0.05) >= ($light + 0.05) / (raky_site_luminance([17, 17, 17]) + 0.05) ? [255, 255, 255] : [17, 17, 17];
+	}
+	return sprintf('--ink:%s;--text:%s;color:var(--text)', raky_site_hex($ink), raky_site_hex(raky_site_mix($ink, $bg, 0.82)));
+}
+
+/** Кольори шапки й низу сайту, якщо вони відрізняються від стандартних. */
+function raky_site_frame_css(): string {
+	$css = '';
+	// Нижнє меню на телефоні — у кольорах низу сайту; обідок кошика — того ж кольору, що й меню.
+	foreach (['header' => '.top', 'footer' => '.foot,.bar'] as $area => $selector) {
+		$bg   = raky_site_opt($area . '_bg');
+		$mode = raky_site_opt($area . '_text');
+		// Стандартні шапку й низ пропускаємо, лише якщо й фон сайту стандартний:
+		// інакше вони успадкували б світлий текст сторінки й стали б білим по білому.
+		if (strcasecmp($bg, raky_site_defaults()[$area . '_bg']) === 0 && $mode === 'auto' && raky_site_background_rgb() === null) {
+			continue;
+		}
+		$css .= sprintf('%s{background:%s;%s}', $selector, $bg, raky_site_text_vars(raky_site_rgb($bg), $mode, raky_site_opt($area . '_text_color')));
+		if ($area === 'footer') {
+			$css .= sprintf('.bar__item--cart .bar__icon{border-color:%s}', $bg);
+			// Смуга під меню, де лежать системні кнопки телефону (коли браузер малює сторінку до самого низу), — на тон темніша за низ сайту.
+			$under = raky_site_hex(raky_site_mix(raky_site_rgb($bg), [0, 0, 0], 0.88));
+			$css  .= sprintf('.bar{background:linear-gradient(to top,%1$s env(safe-area-inset-bottom),%2$s env(safe-area-inset-bottom))}', $under, $bg);
+		} else {
+			// Бічне меню й список телефонів — на тон темніші за шапку, текст підбирається під цей колір.
+			// Смуги й блок «Гість» — напівпрозорі від кольору тексту, щоб не світилися білим на темному.
+			$drop = raky_site_mix(raky_site_rgb($bg), [0, 0, 0], 0.88);
+			$css .= sprintf(
+				'.drawer__panel,.phones-pop{background:%s;%s}'
+				. '.drawer__who{background:color-mix(in srgb,var(--ink) 8%%,transparent)}.drawer__who-text{color:var(--ink)}'
+				. '.drawer__list a{border-bottom-color:color-mix(in srgb,var(--ink) 12%%,transparent)}.phones-pop{border-color:color-mix(in srgb,var(--ink) 15%%,transparent)}.phones-pop a:hover{background:color-mix(in srgb,var(--ink) 10%%,transparent)}',
+				raky_site_hex($drop),
+				raky_site_text_vars($drop, $mode, raky_site_opt('header_text_color'))
+			);
+		}
+	}
+	return $css;
+}
+
+/** CSS фону сайту з налаштувань або '' (звичайний білий). */
+function raky_site_background_css(): string {
+	$mode  = raky_site_opt('bg_mode');
+	$color = raky_site_opt('bg_color');
+	$image = raky_site_opt('bg_image');
+	$rgb  = raky_site_background_rgb();
+	// На кольоровому фоні картки акцій обведені білим, як банери на головній.
+	// Прозорі картки (кошик, оформлення, замовлення…) стають матовим склом у тон фону.
+	$text = $rgb ? sprintf(
+		// Блок «Додати в кошик» теж скляний: текст у ньому — як на фоні сторінки (inherit), а не темний, як на білому.
+		'body{%s;--glass:%s;--glass-blur:blur(18px) saturate(1.2)}.promo{border-color:var(--white)}'
+		. '.buy{background:var(--glass);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);--ink:inherit;--text:inherit;color:var(--text)}'
+		// Уся колонка товару (назва, ціна, смак, вага, кошик) — одна скляна картка в рамці.
+		// На комп'ютері блок кошика всередині без власного скла, лише з лінією зверху; на телефоні він прилипає до низу екрана й лишається скляним.
+		. '.product__info{align-self:start;padding:16px;border:1px solid var(--line);border-radius:var(--radius);background:var(--glass);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur)}'
+		. '@media (min-width:900px){.product__info{padding:20px 22px}.product__info .buy{background:none;-webkit-backdrop-filter:none;backdrop-filter:none;border:0;border-top:1px solid var(--line);border-radius:0;padding:16px 0 0}}',
+		raky_site_text_vars($rgb, raky_site_opt('bg_text'), raky_site_opt('bg_text_color')),
+		raky_site_rgba(raky_site_hex($rgb), '55')
+	) : '';
+	// Блок пошуку й категорій закріплений угорі: фарбуємо його фоном сайту, щоб під ним не просвічували товари.
+	if ($mode === 'color') {
+		return sprintf('body{background:%1$s}.catbar{background:%1$s}', $color) . $text;
+	}
+	if ($mode !== 'image' || $image === '') {
+		return '';
+	}
+	$layer = '';
+	switch (raky_site_opt('bg_layer')) {
+		case 'color':
+			$tint  = raky_site_rgba(raky_site_opt('bg_layer_color'), raky_site_opt('bg_layer_opacity'));
+			$layer = "linear-gradient($tint,$tint),";
+			break;
+		case 'gradient':
+			$layer = sprintf(
+				'linear-gradient(%s,%s,%s),',
+				raky_site_opt('bg_layer_dir'),
+				raky_site_rgba(raky_site_opt('bg_layer_color'), raky_site_opt('bg_layer_opacity')),
+				raky_site_rgba(raky_site_opt('bg_layer_color2'), raky_site_opt('bg_layer_opacity2'))
+			);
+	}
+	$url = "url('" . esc_url($image) . "')";
+	// Матове скло для блоку пошуку, коли збігти з картинкою точно не вийде: фон під ним розмивається
+	// й тонується тим кольором, який реально видно на фоні (картинка разом із накладанням), — темним на темному, світлим на світлому.
+	$tone    = raky_site_hex(raky_site_background_rgb() ?? raky_site_rgb($color));
+	$frosted = sprintf('.catbar{background:%s;-webkit-backdrop-filter:blur(18px) saturate(1.2);backdrop-filter:blur(18px) saturate(1.2)}', raky_site_rgba($tone, '55'));
+	if (raky_site_opt('bg_scroll') === 'scroll') {
+		// Прокручується: картинка на всю ширину й повторюється донизу; накладання тягнеться на всю сторінку.
+		return sprintf('body{background:%s%s center top/100%% auto repeat-y,%s}', $layer, $url, $color) . $frosted . $text;
+	}
+	// Нерухома: окремий шар на весь екран. background-attachment: fixed не працює на iPhone, а такий шар — працює.
+	// Блок пошуку — те саме матове скло, що й у режимі прокручування.
+	return sprintf(
+		'body{background:%1$s}body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:%2$s%3$s center/cover no-repeat,%1$s}',
+		$color,
+		$layer,
+		$url
+	) . $frosted . $text;
+}
+
+add_action('wp_head', static function () {
+	if ($css = raky_site_background_css() . raky_site_frame_css()) {
+		echo '<style id="raky-site-bg">' . strip_tags($css) . "</style>\n";
+	}
+}, 21);
 
 add_action('wp_head', static function () {
 	if ($gsc = raky_site_opt('gsc')) {

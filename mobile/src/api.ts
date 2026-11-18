@@ -212,6 +212,9 @@ const liveApi = {
   favorites: (session: string) => request<MyFavorites>('/me/favorites', { headers: { [SESSION_HEADER]: session } }),
   saveFavorites: (session: string, ids: number[]) => post<MyFavorites>('/me/favorites', { ids }, { [SESSION_HEADER]: session }),
   logout: (session: string) => post<{ ok: boolean }>('/auth/logout', {}, { [SESSION_HEADER]: session }),
+  /** Токен push-сповіщень: сервер надсилатиме на цей телефон статуси замовлень і новини. */
+  registerPush: (token: string, orders: { id: number; key: string }[], session?: string) =>
+    post<{ ok: boolean }>('/push/register', { token, orders }, session ? { [SESSION_HEADER]: session } : {}),
 };
 
 export type Api = typeof liveApi;

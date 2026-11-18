@@ -207,37 +207,42 @@ export function Chip({ label, on, onPress, style }: { label: string; on: boolean
 /**
  * «Додатково»: перше натискання додає одну штуку, далі кількість міняється «−» і «+» на самій кнопці.
  * Кількість показується кружечком, як на кошику в нижньому меню.
+ * Обгортка лишає місце для кружечка й не дає кнопці вийти за картку: довга назва переноситься на наступний рядок і не обрізається (ціна в кінці).
  */
 export function AddonChip({ label, count, onChange }: { label: string; count: number; onChange: (count: number) => void }) {
   if (count < 1) {
     return (
-      <Pressable accessibilityRole="button" accessibilityLabel={`Додати: ${label}`} onPress={() => onChange(1)} style={[styles.chip, styles.addon]}>
-        <Text numberOfLines={1} style={styles.chipText}>
-          {label}
-        </Text>
-      </Pressable>
+      <View style={styles.addonWrap}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Додати: ${label}`} onPress={() => onChange(1)} style={[styles.chip, styles.addon]}>
+          <Text style={[styles.chipText, styles.addonText]}>
+            {label}
+          </Text>
+        </Pressable>
+      </View>
     );
   }
   return (
-    <View style={[styles.chip, styles.chipOn, styles.addon, styles.addonOn]}>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Менше: ${label}`} hitSlop={6} style={styles.addonStep} onPress={() => onChange(count - 1)}>
-        <Icon name="minus" size={15} color={colors.white} />
-      </Pressable>
-      <Text numberOfLines={1} style={[styles.chipText, styles.chipTextOn]}>
-        {label}
-      </Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Більше: ${label}`}
-        hitSlop={6}
-        disabled={count >= 99}
-        style={styles.addonStep}
-        onPress={() => onChange(count + 1)}
-      >
-        <Icon name="plus" size={15} color={colors.white} />
-      </Pressable>
-      <View style={styles.cartCount} accessibilityLabel={`${label}: ${count} шт.`}>
-        <Text style={styles.cartCountText}>{count}</Text>
+    <View style={styles.addonWrap}>
+      <View style={[styles.chip, styles.chipOn, styles.addon, styles.addonOn]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Менше: ${label}`} hitSlop={6} style={styles.addonStep} onPress={() => onChange(count - 1)}>
+          <Icon name="minus" size={15} color={colors.white} />
+        </Pressable>
+        <Text style={[styles.chipText, styles.chipTextOn, styles.addonText]}>
+          {label}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Більше: ${label}`}
+          hitSlop={6}
+          disabled={count >= 99}
+          style={styles.addonStep}
+          onPress={() => onChange(count + 1)}
+        >
+          <Icon name="plus" size={15} color={colors.white} />
+        </Pressable>
+        <View style={[styles.cartCount, styles.addonCount]} accessibilityLabel={`${label}: ${count} шт.`}>
+          <Text style={styles.cartCountText}>{count}</Text>
+        </View>
       </View>
     </View>
   );
@@ -467,9 +472,13 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: colors.red, borderColor: colors.red },
   chipText: { fontSize: 15, color: colors.text },
   chipTextOn: { color: colors.white },
-  addon: { marginTop: 7, marginRight: 7 },
-  addonOn: { flexDirection: 'row', gap: 6, paddingHorizontal: 4 },
-  addonStep: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+  // Відступи зверху й праворуч — місце для лічильника, тож він не налазить на «+» і не виходить за картку.
+  addonWrap: { maxWidth: '100%', paddingTop: 9, paddingRight: 9 },
+  addon: { height: 'auto', minHeight: 32, paddingVertical: 4 },
+  addonText: { flexShrink: 1, textAlign: 'center' },
+  addonOn: { flexDirection: 'row', gap: 4, paddingLeft: 4, paddingRight: 4 },
+  addonStep: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  addonCount: { top: -9, right: -9 },
   inputBox: { height: 38, borderWidth: 1, borderColor: colors.border, borderRadius: 10, backgroundColor: colors.white },
   input: {
     flex: 1,

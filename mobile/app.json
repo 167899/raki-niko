@@ -45,6 +45,14 @@
           "resizeMode": "contain",
           "backgroundColor": "#FFFFFF"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#D92B20",
+          "defaultChannel": "default"
+        }
       ]
     ]
   }

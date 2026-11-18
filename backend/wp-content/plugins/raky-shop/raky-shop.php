@@ -32,6 +32,7 @@ require_once __DIR__ . '/includes/skyservice.php';
 require_once __DIR__ . '/includes/referral.php';
 require_once __DIR__ . '/includes/telegram.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/push.php';
 require_once __DIR__ . '/includes/admin.php';
 
 register_activation_hook(__FILE__, 'raky_name_default_category');

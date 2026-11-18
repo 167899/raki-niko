@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, ScrollViewInstance, StyleSheet, Text, View } from 'react-native';
 import { Banner, Product } from '../api';
-import { BannerFace } from '../components/BannerFace';
+import { BannerFace, useBannerRatios } from '../components/BannerFace';
 import { Badge, BottomBar, Button, Chip, Empty, Heart, Icon, IconButton, Input, Loading, Logo, ProductPicture, shared } from '../components/ui';
 import { unitPrice } from '../format';
 import { useNav } from '../nav';
@@ -19,6 +19,9 @@ function Banners({ banners }: { banners: Banner[] }) {
   const [width, setWidth] = useState(0);
   const [active, setActive] = useState(0);
   const blocked = nav.overlay !== null;
+  // Висота слайдера — за найвищою картинкою, щоб жодну не обрізати; банери без картинки — 106.
+  const ratios = useBannerRatios(banners);
+  const height = Math.max(106, ...banners.map((banner) => (banner.image && ratios[banner.id] && width ? width / ratios[banner.id] : 0)));
 
   useEffect(() => {
     if (banners.length < 2 || !width || blocked) return;
@@ -66,7 +69,7 @@ function Banners({ banners }: { banners: Banner[] }) {
               accessibilityLabel={`Акція: ${banner.title}`}
               onPress={() => nav.go({ name: 'promos', bannerId: banner.id })}
             >
-              <BannerFace banner={banner} style={[styles.banner, { width }]} />
+              <BannerFace banner={banner} style={{ width, height }} />
             </Pressable>
           ))}
         </ScrollView>
@@ -304,7 +307,6 @@ const styles = StyleSheet.create({
   searchIcon: { position: 'absolute', left: gutter + 10, top: 9, zIndex: 1 },
   searchClear: { position: 'absolute', right: gutter + 8, top: 9, zIndex: 1 },
   bannerFrame: { borderRadius: 12, overflow: 'hidden' },
-  banner: { height: 106 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 5, paddingVertical: 6 },
   dotHit: { width: 18, height: 18, alignItems: 'center', justifyContent: 'center' },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#AAAAAA' },
@@ -312,8 +314,9 @@ const styles = StyleSheet.create({
   // Фон потрібен, щоб під прилиплими категоріями не просвічували картки.
   catsBar: { flexGrow: 0, backgroundColor: colors.white },
   cats: { flexDirection: 'row', gap: 6, paddingHorizontal: gutter, paddingVertical: 4 },
-  section: { paddingTop: 6 },
-  sectionTitle: { fontSize: 18, fontWeight: '500', color: colors.ink, paddingHorizontal: gutter, marginBottom: 8 },
+  // Заметний проміжок між категоріями: розділи не зливаються в один список.
+  section: { paddingTop: 22 },
+  sectionTitle: { fontSize: 20, lineHeight: 25, fontWeight: '600', color: colors.ink, paddingHorizontal: gutter, marginBottom: 10 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8, paddingHorizontal: gutter, paddingBottom: 6 },
   card: { width: '48.8%', borderWidth: 1, borderColor: colors.line, borderRadius: 12, overflow: 'hidden' },
   // Квадратне фото: висота дорівнює ширині картки.

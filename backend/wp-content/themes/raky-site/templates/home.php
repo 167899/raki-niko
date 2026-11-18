@@ -15,7 +15,7 @@ raky_site_part('header');
 			<div class="slider__track" data-slider-track>
 				<?php foreach ($banners as $index => $banner) : ?>
 					<div class="slider__slide" aria-roledescription="слайд" aria-label="<?php echo esc_attr(($index + 1) . ' з ' . count($banners)); ?>">
-						<?php raky_site_part('banner', ['banner' => $banner, 'href' => raky_site_url('aktsii') . '#banner-' . $banner['id']]); ?>
+						<?php raky_site_part('banner', ['banner' => $banner, 'href' => raky_site_url('aktsii') . '#banner-' . $banner['id'], 'first' => $index === 0]); ?>
 					</div>
 				<?php endforeach; ?>
 			</div>

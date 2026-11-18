@@ -5,8 +5,11 @@
  */
 
 :root {
-  --text: #444444;
-  --ink: #111111;
+  --text-base: #444444;
+  --ink-base: #111111;
+  /* На фоні сторінки колір тексту може змінитися (адмінка «Сайт» → «Фон сайту»), на білих підкладках — ні. */
+  --text: var(--text-base);
+  --ink: var(--ink-base);
   --red: #d92b20;
   --red-dark: #b8221a;
   --soft: #fdecea;
@@ -65,6 +68,33 @@ body.has-admin-bar {
 html {
   -webkit-text-size-adjust: 100%;
   scroll-padding-top: calc(var(--top-h) + 64px);
+}
+
+/*
+ * Білі підкладки (картки, поля, кнопки-обведення, меню, вікна) завжди з темним текстом,
+ * навіть якщо фон сайту темний і текст сторінки став світлим. Шапка й низ сайту мають свої кольори.
+ */
+.drawer__panel,
+.btn--outline,
+.chip,
+input:not([type='radio']):not([type='checkbox']),
+select,
+textarea,
+.card,
+.product__photo,
+.addon__count,
+.addon__minus,
+.stepper__btn,
+.buy,
+.requisites,
+.bonus,
+.bar,
+.sheet,
+.phones-pop,
+.auth__social {
+  --text: var(--text-base);
+  --ink: var(--ink-base);
+  color: var(--text);
 }
 
 body {
@@ -695,6 +725,7 @@ input[aria-invalid='true'] {
 
 .slider__track {
   display: flex;
+  border: 1px solid var(--white);
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
@@ -758,7 +789,34 @@ input[aria-invalid='true'] {
   content: '';
   position: absolute;
   inset: 0;
+  z-index: 1;
   background: rgba(0, 0, 0, 0.25);
+}
+
+/* Банер з картинкою: висота — за пропорціями самої картинки, краї не обрізаються. */
+.slider .banner--image,
+.promo .banner--image,
+.banner--image {
+  display: block;
+  aspect-ratio: auto;
+  min-height: 0;
+  padding: 0;
+}
+
+.banner__img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.banner > .banner__text {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 12px 14px;
 }
 
 .banner > * {
@@ -782,6 +840,7 @@ input[aria-invalid='true'] {
   top: calc(var(--top-h) + var(--ab));
   z-index: 20;
   background: var(--white);
+  border-radius: var(--radius);
   padding: 6px 0 4px;
   margin: 0 calc(var(--gutter) * -1);
   padding-left: var(--gutter);
@@ -975,6 +1034,7 @@ input[aria-invalid='true'] {
 
 .product__photo {
   position: relative;
+  border: 1px solid var(--white);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1120,12 +1180,13 @@ input[aria-invalid='true'] {
 
 .buy {
   position: sticky;
-  bottom: calc(var(--bar-h) + env(safe-area-inset-bottom));
+  bottom: calc(var(--bar-h) + env(safe-area-inset-bottom) + 8px);
   z-index: 10;
   background: var(--white);
-  border-top: 1px solid var(--line);
-  margin: 14px calc(var(--gutter) * -1) 0;
-  padding: 10px var(--gutter);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin: 14px 0 0;
+  padding: 12px 14px 14px;
 }
 
 .buy .btn {
@@ -1336,6 +1397,12 @@ fieldset.panel > .panel__title + * {
   width: 100%;
 }
 
+/* «Ваше замовлення» і «Разом» у підсумку — помітніше за рядки товарів. */
+.summary > .panel__title,
+.summary .sum--total > span {
+  font-size: 19px;
+}
+
 .summary__lines {
   list-style: none;
   margin: 0 0 8px;
@@ -1360,14 +1427,14 @@ fieldset.panel > .panel__title + * {
 }
 
 .summary__name {
-  font-size: 15px;
+  font-size: 14px;
   line-height: 21px;
   font-weight: 600;
   color: var(--ink);
 }
 
 .summary__meta {
-  font-size: 15px;
+  font-size: 14px;
   line-height: 21px;
 }
 
@@ -1442,24 +1509,33 @@ fieldset.panel > .panel__title + * {
   padding: 10px 12px;
 }
 
-.promo .banner--image {
-  aspect-ratio: 1200 / 340;
-}
 
 .promo__foot {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px 12px;
   font-size: 14px;
-  line-height: 19px;
+  line-height: 20px;
 }
 
-.promo__foot p {
-  flex: 1;
+.promo__code {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 17px;
+  line-height: 22px;
 }
 
-.promo__foot strong {
+.promo__code > span {
+  white-space: nowrap;
+}
+
+.promo__code strong {
+  font-size: 20px;
+  letter-spacing: 0.5px;
   color: var(--ink);
 }
 
@@ -1889,8 +1965,11 @@ fieldset.panel > .panel__title + * {
     white-space: nowrap;
   }
 
+  /* Підсвітка з кольору самого тексту: читається і на світлій, і на темній шапці. */
   .top__nav a:hover {
     background: var(--band);
+    background: color-mix(in srgb, var(--ink) 12%, transparent);
+    color: var(--ink);
   }
 
   .top__nav a[aria-current] {
@@ -1995,6 +2074,14 @@ fieldset.panel > .panel__title + * {
     padding: 24px 32px;
   }
 
+  .banner.banner--image {
+    padding: 0;
+  }
+
+  .banner > .banner__text {
+    padding: 24px 32px;
+  }
+
   /* Банер без картинки: невисока кольорова плашка, а не пів екрана. */
   .slider .banner:not(.banner--image) {
     aspect-ratio: auto;
@@ -2058,7 +2145,7 @@ fieldset.panel > .panel__title + * {
   .buy {
     position: static;
     margin: 18px 0 0;
-    padding: 14px 0 0;
+    padding: 16px 18px 18px;
   }
 
   .buy .btn {
@@ -2298,3 +2385,18 @@ fieldset.panel > .panel__title + * {
 .about__logo{text-align:center;margin:4px 0 0}
 .about__logo img{display:block;margin:0 auto}
 .about__socials{display:flex;gap:8px;padding-top:14px}
+
+/*
+ * Матове скло для прозорих карток (кошик, оформлення, замовлення, акції, контакти),
+ * коли в адмінці задано фон сайту: --glass і --glass-blur задає inc/settings.php. Без фону картки прозорі, як і були.
+ */
+.cart-row,
+.panel,
+.promo,
+.box,
+.order,
+.tg-wait {
+  background: var(--glass, transparent);
+  -webkit-backdrop-filter: var(--glass-blur, none);
+  backdrop-filter: var(--glass-blur, none);
+}

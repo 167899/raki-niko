@@ -308,7 +308,7 @@ add_action('admin_enqueue_scripts', static function () {
 	if (! $screen || $screen->id !== 'product') {
 		return;
 	}
-	wp_enqueue_script('raky-admin-categories', plugins_url('assets/admin-categories.js', __DIR__), ['jquery', 'jquery-ui-sortable'], '0.3.1', true);
+	wp_enqueue_script('raky-admin-categories', plugins_url('assets/admin-categories.js', __DIR__), ['jquery', 'jquery-ui-sortable'], '0.4.0', true);
 	wp_localize_script('raky-admin-categories', 'rakyCategories', [
 		'defaultCategory' => (string) raky_default_category(),
 		'deleteNonce'     => wp_create_nonce('raky_delete_category'),
