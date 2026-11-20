@@ -97,6 +97,7 @@ function raky_contact_url(string $network): string {
 function raky_rest_config(): array {
 	$settings = raky_get_settings();
 	$contacts = raky_contacts();
+	$site     = (array) get_option('raky_site', []);
 	return [
 		'currency'      => get_woocommerce_currency(),
 		// Старі версії застосунку читають лише один номер.
@@ -105,6 +106,9 @@ function raky_rest_config(): array {
 		'socials'       => $contacts['socials'],
 		'referral'      => ['enabled' => (bool) $settings['referral_on'], 'percent' => (float) $settings['referral_pct']],
 		'banners_on'    => raky_banners_on(),
+		// Зі сторінки «Сайт»; порожнє — застосунок покаже свій типовий текст.
+		'hours'         => trim((string) ($site['hours'] ?? '')),
+		'about'         => trim((string) ($site['about'] ?? '')),
 		'outlets'       => array_values($settings['outlets']),
 		'zones'         => array_values($settings['zones']),
 	];

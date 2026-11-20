@@ -1,7 +1,7 @@
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SocialIcons, useContacts } from '../components/Overlays';
 import { Header, Heading, Icon, InfoRow, Logo, Paragraph, shared } from '../components/ui';
-import { HOURS } from '../content';
+import { ABOUT, HOURS } from '../content';
 import { prettyPhone } from '../format';
 import { useShop } from '../shop';
 import { colors } from '../theme';
@@ -9,6 +9,7 @@ import { colors } from '../theme';
 export function AboutScreen() {
   const { config } = useShop();
   const { phones } = useContacts();
+  const about = (config?.about || ABOUT).split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
   return (
     <View style={shared.fill}>
       <Header title="Про компанію" />
@@ -17,7 +18,9 @@ export function AboutScreen() {
           <Logo width={78} height={93} />
         </View>
         <Heading>Хто ми</Heading>
-        <Paragraph>Raki Niko продає раків у Миколаєві.</Paragraph>
+        {about.map((part, index) => (
+          <Paragraph key={index} style={index > 0 ? { marginTop: 8 } : null}>{part}</Paragraph>
+        ))}
         <Heading>Телефони</Heading>
         <View style={styles.box}>
           {phones.map((phone) => (
@@ -37,7 +40,7 @@ export function AboutScreen() {
           ))}
         </View>
         <Heading>Робочі години</Heading>
-        <InfoRow left="Щодня" right={HOURS} />
+        <InfoRow left="Щодня" right={config?.hours || HOURS} />
         <SocialIcons size={24} style={styles.socials} />
       </ScrollView>
     </View>

@@ -2,7 +2,7 @@
 /**
  * Сторінка «Сайт» в адмінці: контакти, тексти, колір акценту, фон сайту, коди реклами й аналітики.
  * Усе зберігається в одній опції raky_site. Порожнє поле — береться типове значення з raky_site_defaults().
- * Застосунок ці налаштування не читає: його тексти задані в mobile/src/content.ts.
+ * Застосунок бере звідси лише години роботи й текст «Про компанію» (/config), решта його текстів — у mobile/src/content.ts.
  * Телефони й соцмережі (розділ «Контакти») спільні із застосунком: зберігаються в плагіні (raky_save_contacts), застосунок бере їх з /config.
  */
 defined('ABSPATH') || exit;
@@ -23,6 +23,7 @@ function raky_site_defaults(): array {
 		'home_desc' => 'Живі та варені раки в Миколаєві. Оберіть калібр і смак, оформіть доставку по місту або самовивіз.',
 		'pay_steps' => "Ви надсилаєте замовлення на сайті або в застосунку.\nМенеджер перевіряє наявність і уточнює вагу.\nУ замовленні з'являються реквізити й точна сума.\nПісля оплати готуємо й передаємо замовлення.",
 		'cash_note' => 'Також можна оплатити готівкою при отриманні.',
+		'about'     => 'Raki Niko продає раків у Миколаєві.',
 		'privacy'   => "Які дані ми збираємо\nІм'я, телефон, email за бажанням, адреса доставки й історія замовлень.\n\nНавіщо вони потрібні\nЩоб прийняти, підтвердити й доставити замовлення, а також зв'язатися з вами.\n\nКому ми їх передаємо\nКур'єрській службі лише дані, потрібні для доставки.\n\nВаші права\nВи можете змінити дані або попросити їх видалити.\n\nКонтакти\nГаряча лінія: +380 93 647 39 02.",
 		'offer'     => "Продавець\nДані ФОП буде додано.\n\nЗамовлення\nЗамовлення діє після підтвердження менеджером. Вага й сума можуть бути уточнені до оплати.\n\nЦіна й оплата\nОплата за реквізитами після підтвердження замовлення або готівкою при отриманні.\n\nДоставка й самовивіз\nДоставка в зонах обслуговування або самовивіз із точок продажу.\n\nПовернення\nУмови буде додано.",
 		'legal_ok'  => '',
@@ -80,8 +81,11 @@ function raky_site_fields(): array {
 	$lines = 'по одному в рядку';
 	return [
 		'Контакти' => [
-			'hours'     => ['Години роботи', 'text', 'Наприклад, 10:00–21:00.'],
+			'hours'     => ['Години роботи', 'text', 'Наприклад, 10:00–21:00. Показуються на сайті й у застосунку.'],
 			'city'      => ['Місто', 'text', ''],
+		],
+		'Про компанію' => [
+			'about' => ['Хто ми', 'about', 'Текст на сторінці «Про компанію» на сайті й у застосунку. Абзаци розділяйте порожнім рядком.'],
 		],
 		'Головна сторінка й Google' => [
 			'tagline'   => ['Заголовок головної', 'text', 'Великий заголовок на головній і назва сайту в Google.'],
@@ -157,6 +161,7 @@ function raky_site_sanitize($input): array {
 					$value = preg_match('/^#[0-9a-f]{6}$/i', trim($value)) ? strtoupper(trim($value)) : (string) (raky_site_defaults()[$key] ?? RAKY_SITE_ACCENT);
 					break;
 				case 'textarea':
+				case 'about':
 				case 'legal':
 					$value = sanitize_textarea_field($value);
 					break;
@@ -243,7 +248,7 @@ function raky_site_settings_page(): void {
 	<div class="wrap">
 		<h1>Сайт</h1>
 		<?php settings_errors(); ?>
-		<p>Ці дані бачить лише сайт <a href="<?php echo esc_url(home_url('/')); ?>" target="_blank"><?php echo esc_html(wp_parse_url(home_url(), PHP_URL_HOST)); ?></a>. Товари, ціни, акції, банери й новини редагуються як і раніше — у «Товари», «Застосунок», «Банери», «Новини». Телефони й соцмережі в розділі «Контакти» спільні із застосунком. Юридичні тексти застосунку задані окремо.</p>
+		<p>Ці дані бачить лише сайт <a href="<?php echo esc_url(home_url('/')); ?>" target="_blank"><?php echo esc_html(wp_parse_url(home_url(), PHP_URL_HOST)); ?></a>. Товари, ціни, акції, банери й новини редагуються як і раніше — у «Товари», «Застосунок», «Банери», «Новини». Телефони, соцмережі, години роботи й текст «Про компанію» спільні із застосунком. Юридичні тексти застосунку задані окремо.</p>
 		<p>Після збереження сайт оновлюється протягом кількох хвилин.</p>
 		<form method="post" action="options.php">
 			<?php settings_fields('raky_site'); ?>
@@ -252,6 +257,9 @@ function raky_site_settings_page(): void {
 				<?php if ($section === 'Контакти' && function_exists('raky_render_contacts_fields')) {
 					raky_render_contacts_fields('raky_site[contacts]');
 				} ?>
+				<?php if ($section === 'Про компанію') : ?>
+					<p>Телефони, соцмережі й години роботи на цій сторінці беруться з розділу «Контакти» вище, адреси — з <a href="<?php echo esc_url(admin_url('admin.php?page=raky-settings')); ?>">«WooCommerce» → «Застосунок» → «Точки»</a> (поле name).</p>
+				<?php endif; ?>
 				<?php if ($section === 'Юридичні тексти') : ?>
 					<p>Кожен розділ — окремий абзац через порожній рядок. Перший рядок абзацу — заголовок розділу.</p>
 				<?php endif; ?>
@@ -265,8 +273,8 @@ function raky_site_settings_page(): void {
 						<tr<?php echo ! empty($field[4]) ? ' data-when="' . esc_attr(wp_json_encode($field[4])) . '"' : ''; ?>>
 							<th scope="row"><label for="<?php echo esc_attr($id); ?>"><?php echo esc_html($label); ?></label></th>
 							<td>
-								<?php if ($type === 'textarea' || $type === 'legal') : ?>
-									<textarea id="<?php echo esc_attr($id); ?>" name="<?php echo esc_attr($name); ?>" rows="<?php echo $type === 'legal' ? 14 : 4; ?>" class="large-text"><?php echo esc_textarea($value); ?></textarea>
+								<?php if ($type === 'textarea' || $type === 'about' || $type === 'legal') : ?>
+									<textarea id="<?php echo esc_attr($id); ?>" name="<?php echo esc_attr($name); ?>" rows="<?php echo $type === 'legal' ? 14 : ($type === 'about' ? 8 : 4); ?>" class="large-text"><?php echo esc_textarea($value); ?></textarea>
 								<?php elseif ($type === 'checkbox') : ?>
 									<label><input id="<?php echo esc_attr($id); ?>" type="checkbox" name="<?php echo esc_attr($name); ?>" value="1" <?php checked($value, '1'); ?>> Так</label>
 								<?php elseif ($type === 'color') : ?>

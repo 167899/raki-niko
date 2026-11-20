@@ -1,6 +1,7 @@
 /** Запасні контакти, поки сервер не відповів. Справжні — зі сторінки «Сайт» в адмінці (useContacts). */
 export const PHONES = ['+380936473902', '+380633001953', '+380633418905'];
 export const HOURS = '10:00–21:00';
+export const ABOUT = 'Raki Niko продає раків у Миколаєві.';
 export const TELEGRAM_URL = 'https://t.me/rakiniko';
 /** Viber поки без посилання: доступ до акаунта відновлюємо. */
 export const VIBER_URL = '';

@@ -10,7 +10,9 @@ raky_site_part('header');
 	<h1 class="page-title">Про компанію</h1>
 	<p class="about__logo"><img src="<?php echo esc_url(get_theme_file_uri('assets/logo.png')); ?>" width="78" height="93" alt="Raki Niko"></p>
 	<h2 class="heading">Хто ми</h2>
-	<p>Raki Niko продає раків у Миколаєві.</p>
+	<?php foreach (preg_split('/\R\s*\R/u', raky_site_opt('about')) as $paragraph) : ?>
+		<p><?php echo nl2br(esc_html(trim($paragraph))); ?></p>
+	<?php endforeach; ?>
 	<h2 class="heading">Телефони</h2>
 	<div class="box">
 		<?php foreach (RAKY_SITE_PHONES as $phone) : ?>

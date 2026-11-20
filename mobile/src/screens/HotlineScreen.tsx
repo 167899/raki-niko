@@ -3,14 +3,16 @@ import { useContacts } from '../components/Overlays';
 import { Header, Heading, Paragraph, RowButton, shared } from '../components/ui';
 import { HOURS } from '../content';
 import { prettyPhone } from '../format';
+import { useShop } from '../shop';
 
 export function HotlineScreen() {
   const contacts = useContacts();
+  const { config } = useShop();
   return (
     <View style={shared.fill}>
       <Header title="Гаряча лінія" />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={shared.pad} showsVerticalScrollIndicator={false}>
-        <Paragraph>Щодня {HOURS}. Натисніть номер, щоб зателефонувати.</Paragraph>
+        <Paragraph>Щодня {config?.hours || HOURS}. Натисніть номер, щоб зателефонувати.</Paragraph>
         <Heading>Зателефонувати</Heading>
         {contacts.phones.map((phone, index) => (
           <RowButton

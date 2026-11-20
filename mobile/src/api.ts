@@ -77,6 +77,9 @@ export type Config = {
   referral: { enabled: boolean; percent: number };
   /** Блок банерів на Головній; без значення показується. */
   banners_on?: boolean;
+  /** Години роботи й текст «Хто ми» зі сторінки «Сайт»; порожні — типові з content.ts. */
+  hours?: string;
+  about?: string;
   outlets: Outlet[];
   zones: Zone[];
 };
