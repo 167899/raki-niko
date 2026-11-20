@@ -44,6 +44,22 @@ Header set Cache-Control "public, max-age=31536000, immutable"
 # END RAKY CACHE'
 ssh "$HOST" "set -e; cd $WP_PATH/wp-content; printf '%s\n' '$CACHE_RULES' > themes/raky-site/dist/.htaccess; touch uploads/.htaccess; grep -q 'BEGIN RAKY CACHE' uploads/.htaccess || printf '\n%s\n' '$CACHE_RULES' >> uploads/.htaccess"
 
+echo "Перенаправлення http:// і www на https://…"
+# Без нього сайт відкривається і за http://, і Google бачить дві копії. Блок ставиться на самий верх .htaccess, до кешу LiteSpeed.
+# /.well-known/ лишаємо доступним по http: через нього хостинг продовжує SSL-сертифікат.
+HTTPS_RULES='# BEGIN RAKY HTTPS
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteCond %{REQUEST_URI} !^/\.well-known/
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+RewriteCond %{HTTP_HOST} ^(?:www\.)?(.+)$ [NC]
+RewriteRule ^ https://%1%{REQUEST_URI} [R=301,L]
+</IfModule>
+# END RAKY HTTPS
+'
+printf '%s\n' "$HTTPS_RULES" | ssh "$HOST" "set -e; cd $WP_PATH; grep -q 'BEGIN RAKY HTTPS' .htaccess || { cp .htaccess .htaccess.before-https; cat - .htaccess > .htaccess.new; mv .htaccess.new .htaccess; }"
+
 echo "Викладаю плагін адрес латиницею…"
 COPYFILE_DISABLE=1 tar --no-xattrs -C wp-content/plugins -czf - raky-latin-slugs |
   ssh "$HOST" "set -e; cd $WP_PATH/wp-content/plugins; rm -rf raky-latin-slugs.new; mkdir raky-latin-slugs.new; tar -xzf - -C raky-latin-slugs.new; rm -rf raky-latin-slugs; mv raky-latin-slugs.new/raky-latin-slugs raky-latin-slugs; rm -rf raky-latin-slugs.new"

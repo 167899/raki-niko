@@ -36,11 +36,7 @@ function raky_site_meta(): array {
 		case 'product':
 			$product             = $current['product'];
 			$meta['title']       = $product['name'] . ' — ' . raky_site_unit_price($product['price'], $product['unit']) . ' | ' . RAKY_SITE_NAME;
-			$meta['description'] = wp_trim_words(
-				trim(($product['description'] !== '' ? $product['description'] . '. ' : '') . 'Замовляйте в Raki Niko з доставкою по Миколаєву.'),
-				30,
-				'…'
-			);
+			$meta['description'] = raky_site_product_description($product);
 			$meta['image']     = $product['image_large'] ?: $product['image'] ?: $meta['image'];
 			$meta['canonical'] = raky_site_product_url($product['id']);
 			$meta['type']      = 'product';
@@ -55,6 +51,9 @@ function raky_site_meta(): array {
 				'novyny'   => 'Новини Raki Niko: свіжі надходження, графік роботи, нові страви.',
 				'dostavka' => 'Доставка раків по Миколаєву: зони й вартість на карті, самовивіз, оплата за реквізитами чи готівкою.',
 				'kontakty' => 'Телефони, адреси й години роботи Raki Niko в Миколаєві.',
+				'pro-kompaniiu' => raky_site_short_text(raky_site_opt('about') . ' Телефони, адреси й години роботи магазину в Миколаєві.'),
+				'pryvatnist' => 'Політика конфіденційності Raki Niko: які дані ми збираємо під час замовлення і як їх захищаємо.',
+				'oferta'     => 'Публічна оферта Raki Niko: умови замовлення, оплати й доставки раків та морепродуктів у Миколаєві.',
 			][$current['slug']] ?? $meta['description'];
 			break;
 		case '404':
@@ -63,6 +62,31 @@ function raky_site_meta(): array {
 			break;
 	}
 	return $meta;
+}
+
+/** Текст до 160 знаків по межі слова — стільки Google показує під заголовком. */
+function raky_site_short_text(string $text, int $limit = 160): string {
+	$text = trim(preg_replace('/\s+/u', ' ', $text));
+	if (mb_strlen($text) <= $limit) {
+		return $text;
+	}
+	$cut = mb_substr($text, 0, $limit - 1);
+	$space = mb_strrpos($cut, ' ');
+	return rtrim($space ? mb_substr($cut, 0, $space) : $cut, ' ,.;:—-') . '…';
+}
+
+/**
+ * Опис товару для Google: назва, ціна, категорія — у кожного товару свій.
+ * Короткий опис додаємо, якщо в ньому є щось, крім одиниці ціни («Ціна за 1 кг» уже видно з ціни).
+ */
+function raky_site_product_description(array $product): string {
+	$category = raky_site_category($product['category_id']);
+	$about    = trim($product['description'], " .\t\n\r");
+	$extra    = $about !== '' && ! preg_match('/^(ці[нв]а за|порція)\s*[\d\s]*(кг|г|шт|порцію)?$/iu', $about) ? ' ' . $about . '.' : '';
+	return raky_site_short_text(
+		$product['name'] . ' — ' . raky_site_unit_price($product['price'], $product['unit']) . '.' . $extra
+		. ($category ? ' ' . $category['name'] . ' в Raki Niko:' : ' Raki Niko:') . ' доставка по Миколаєву або самовивіз.'
+	);
 }
 
 add_filter('pre_get_document_title', static fn () => raky_site_meta()['title']);
@@ -228,7 +252,9 @@ add_filter('wp_sitemaps_posts_query_args', static function (array $args, string 
 
 add_filter('wp_sitemaps_taxonomies_query_args', static function (array $args, string $taxonomy): array {
 	if ($taxonomy === 'product_cat') {
-		$args['include'] = array_merge([0], array_column(raky_site_catalog()['categories'], 'id'));
+		// Розділи й вкладені підкатегорії-папки («Суші» → «Каліфорнія»): у кожної своя сторінка.
+		$catalog         = raky_site_catalog();
+		$args['include'] = array_merge([0], array_column($catalog['categories'], 'id'), array_column($catalog['subcategories'] ?? [], 'id'));
 		// Товари лежать у підкатегоріях (калібри), тож лічильник основної категорії буває нульовим.
 		$args['hide_empty'] = false;
 	}

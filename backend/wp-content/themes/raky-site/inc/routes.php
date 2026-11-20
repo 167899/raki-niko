@@ -16,7 +16,8 @@ function raky_site_pages(): array {
 		'dostavka'     => ['delivery', 'Оплата і доставка', true],
 		'kontakty'     => ['contacts', 'Контакти', true],
 		'pro-kompaniiu' => ['about', 'Про компанію', true],
-		'zaproshennia' => ['invite', 'Запросити друзів', true],
+		// Сторінка для посилань-запрошень, у пошуку вона не потрібна.
+		'zaproshennia' => ['invite', 'Запросити друзів', false],
 		// Поки тексти — макет, пошуковикам їх не показуємо.
 		'pryvatnist'   => ['legal', 'Політика конфіденційності', RAKY_SITE_LEGAL_OK],
 		'oferta'       => ['legal', 'Публічна оферта', RAKY_SITE_LEGAL_OK],

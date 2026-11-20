@@ -18,7 +18,7 @@ $slug    = raky_site_category($product['category_id'])['slug'] ?? '';
 	} ?>
 	<a class="card__pic" href="<?php echo esc_url($url); ?>" tabindex="-1" aria-hidden="true">
 		<?php if ($product['image']) : ?>
-			<img src="<?php echo esc_url($product['image']); ?>" alt="" width="300" height="300" <?php echo empty($args['eager']) ? 'loading="lazy"' : 'fetchpriority="high"'; ?> decoding="async">
+			<img src="<?php echo esc_url($product['image']); ?>" alt="<?php echo esc_attr($card['title']); ?>" width="300" height="300" <?php echo empty($args['eager']) ? 'loading="lazy"' : 'fetchpriority="high"'; ?> decoding="async">
 		<?php else : ?>
 			<?php echo raky_site_icon(str_contains(urldecode($slug), 'жив') || str_contains($slug, 'zhyv') ? 'droplet' : 'flame', 44); ?>
 		<?php endif; ?>

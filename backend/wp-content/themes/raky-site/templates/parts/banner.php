@@ -24,10 +24,11 @@ if ($banner['image']) {
 	// Перший банер — найбільший елемент екрана: вантажимо одразу, решту — коли дійде черга.
 	$load  = ! empty($args['first']) ? ' fetchpriority="high"' : ' loading="lazy"';
 	$img   = sprintf(
-		'<img class="banner__img" src="%s"%s%s alt="" decoding="async"%s>',
+		'<img class="banner__img" src="%s"%s%s alt="%s" decoding="async"%s>',
 		esc_url($banner['image']),
 		$set ? ' srcset="' . esc_attr($set) . '" sizes="(min-width: 1200px) 1150px, calc(100vw - 32px)"' : '',
 		$size,
+		esc_attr($banner['title']), // підпис для Google Картинок
 		$load
 	);
 }
