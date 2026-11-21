@@ -11,11 +11,13 @@ import { initHeader } from './header';
 import { initInvite } from './invite';
 import { initOrders } from './orders';
 import { initProduct } from './product';
+import { trackVisit } from './stats';
 import { store } from './store';
 import { copy } from './ui';
 
 initHeader();
 initFavorites();
+trackVisit();
 
 document.addEventListener('click', (event) => {
   const button = (event.target as Element).closest<HTMLElement>('[data-copy]');

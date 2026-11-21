@@ -50,6 +50,10 @@ add_action('wp_head', static function () {
 		),
 		'referral' => $config['referral'],
 		'phone'    => RAKY_SITE_PHONES[0],
+		// Статистика відвідувань (плагін, includes/stats.php): коротка назва сторінки для таблиці «Популярні сторінки».
+		'label'    => raky_site_current()['type'] === 'home' ? 'Головна' : (string) preg_replace('/( у Миколаєві — .*| — .*)?( \\| ' . preg_quote(RAKY_SITE_NAME, '/') . ')?$/u', '', raky_site_meta()['title']),
+		// Перегляди працівників, які увійшли в адмінку, не рахуємо.
+		'track'    => ! current_user_can('edit_posts'),
 	];
 	echo '<script>window.RAKY=' . wp_json_encode($boot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . ";</script>\n";
 }, 2);

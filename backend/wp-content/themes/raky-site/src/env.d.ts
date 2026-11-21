@@ -12,6 +12,8 @@ interface Window {
     links: Record<string, string>;
     referral: { enabled: boolean; percent: number };
     phone: string;
+    label: string;
+    track: boolean;
   };
   /** Google Tag Manager / Google Analytics, якщо підключені. */
   dataLayer?: unknown[];
