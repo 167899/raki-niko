@@ -362,13 +362,15 @@ export function Loading() {
 }
 
 /** Фото товару або іконка на м'якому фоні, поки фото немає. */
-export function ProductPicture({ product, size, style }: { product: Product; size: number; style: StyleProp<ViewStyle> }) {
+/** image — інше фото замість фото товару (наприклад, фото категорії для картки). */
+export function ProductPicture({ product, size, style, image }: { product: Product; size: number; style: StyleProp<ViewStyle>; image?: string | null }) {
   const { catalog } = useShop();
   const slug = catalog?.categories.find((category) => category.id === product.category_id)?.slug;
-  if (product.image) {
+  const uri = image || product.image;
+  if (uri) {
     return (
       <View style={[styles.picture, style]}>
-        <Image source={{ uri: product.image }} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityIgnoresInvertColors />
+        <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityIgnoresInvertColors />
       </View>
     );
   }

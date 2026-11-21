@@ -89,7 +89,8 @@ function Banners({ banners }: { banners: Banner[] }) {
  * Картка веде на товар; для підкатегорії це найдешевший калібр, інші обираються в товарі.
  * folder — картка папки («Каліфорнія»): відкриває екран з її картками.
  */
-export type Card = { product: Product; title: string; fromPrice: boolean; folder?: Subcategory };
+/** image — фото категорії з адмінки, якщо його задано; інакше картка показує фото товару. */
+export type Card = { product: Product; title: string; fromPrice: boolean; folder?: Subcategory; image?: string | null };
 
 /** Одна картка на підкатегорію, як на сайті. */
 function buildCards(products: Product[]): Card[] {
@@ -100,7 +101,7 @@ function buildCards(products: Product[]): Card[] {
   }
   return [...groups.values()].map((items) => {
     const cheapest = items.reduce((best, item) => (item.price < best.price ? item : best));
-    return { product: cheapest, title: cheapest.group || cheapest.name, fromPrice: items.length > 1 };
+    return { product: cheapest, title: cheapest.group || cheapest.name, fromPrice: items.length > 1, image: cheapest.group ? cheapest.group_image : null };
   });
 }
 
@@ -124,16 +125,16 @@ export function buildCardsAt(products: Product[], subcategories: Subcategory[], 
     const folder = key.startsWith('folder-') ? subcategories.find((sub) => `folder-${sub.id}` === key) : undefined;
     if (!folder) return buildCards(items)[0];
     const cheapest = items.reduce((best, item) => (item.price < best.price ? item : best));
-    return { product: cheapest, title: folder.name, fromPrice: items.length > 1, folder };
+    return { product: cheapest, title: folder.name, fromPrice: items.length > 1, folder, image: folder.image };
   });
 }
 
-export function ProductCard({ card: { product, title, fromPrice, folder } }: { card: Card }) {
+export function ProductCard({ card: { product, title, fromPrice, folder, image } }: { card: Card }) {
   const nav = useNav();
   const { favorites } = useShop();
   return (
     <View style={styles.card}>
-      <ProductPicture product={product} size={44} style={styles.pic} />
+      <ProductPicture product={product} image={image} size={44} style={styles.pic} />
       {!folder && (
         <View style={styles.cardHeart}>
           <Heart id={product.id} on={favorites.includes(product.id)} />

@@ -315,6 +315,13 @@ add_action('update_option_raky_site', static function () {
 	do_action('litespeed_purge_all');
 });
 
+// Фото, назва чи порядок категорії видно на картках усіх сторінок — теж очищаємо кеш.
+foreach (['created_product_cat', 'edited_product_cat', 'delete_product_cat'] as $hook) {
+	add_action($hook, static function () {
+		do_action('litespeed_purge_all');
+	});
+}
+
 /** Темніший відтінок акценту для наведення (як --red-dark до --red). */
 function raky_site_darker(string $hex, float $amount = 0.15): string {
 	[$r, $g, $b] = array_map('hexdec', str_split(ltrim($hex, '#'), 2));

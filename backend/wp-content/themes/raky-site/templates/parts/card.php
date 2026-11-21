@@ -10,6 +10,7 @@ defined('ABSPATH') || exit;
 $card    = $args['card'];
 $product = $card['product'];
 $url     = $card['url'] ?? raky_site_product_url($product['id']);
+$image   = $card['image'] ?? $product['image'];
 $slug    = raky_site_category($product['category_id'])['slug'] ?? '';
 ?>
 <article class="card" data-search="<?php echo esc_attr(raky_site_card_search($card)); ?>"<?php echo ! empty($args['fav_card']) ? ' data-fav-card="' . (int) $product['id'] . '" hidden' : ''; ?>>
@@ -17,8 +18,8 @@ $slug    = raky_site_category($product['category_id'])['slug'] ?? '';
 		raky_site_part('heart', ['id' => $product['id']]);
 	} ?>
 	<a class="card__pic" href="<?php echo esc_url($url); ?>" tabindex="-1" aria-hidden="true">
-		<?php if ($product['image']) : ?>
-			<img src="<?php echo esc_url($product['image']); ?>" alt="<?php echo esc_attr($card['title']); ?>" width="300" height="300" <?php echo empty($args['eager']) ? 'loading="lazy"' : 'fetchpriority="high"'; ?> decoding="async">
+		<?php if ($image) : ?>
+			<img src="<?php echo esc_url($image); ?>" alt="<?php echo esc_attr($card['title']); ?>" width="300" height="300" <?php echo empty($args['eager']) ? 'loading="lazy"' : 'fetchpriority="high"'; ?> decoding="async">
 		<?php else : ?>
 			<?php echo raky_site_icon(str_contains(urldecode($slug), 'жив') || str_contains($slug, 'zhyv') ? 'droplet' : 'flame', 44); ?>
 		<?php endif; ?>

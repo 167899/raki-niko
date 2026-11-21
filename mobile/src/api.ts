@@ -32,6 +32,8 @@ export type Product = {
   image: string | null;
   image_large: string | null;
   group: string;
+  /** Фото категорії-картки з адмінки; старий сервер його не надсилає. */
+  group_image?: string | null;
   caliber: string;
   caliber_hint: string;
   per_kg: number;
@@ -41,7 +43,7 @@ export type Product = {
 };
 
 /** Папка всередині категорії: у меню це картка, що відкриває свої картки. parent — категорія чи інша папка. */
-export type Subcategory = { id: number; category_id: number; parent: number; name: string };
+export type Subcategory = { id: number; category_id: number; parent: number; name: string; image?: string | null };
 
 export type Catalog = { categories: Category[]; subcategories?: Subcategory[]; products: Product[] };
 

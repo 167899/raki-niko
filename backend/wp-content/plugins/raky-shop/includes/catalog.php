@@ -112,7 +112,7 @@ function raky_product_addons(WC_Product $product): array {
  * картка, що об'єднує калібри. Рівні між ними — підкатегорії-«папки»: у розділі це картка, а в ній — свої картки.
  * «Суші та роли» → «Каліфорнія» (папка) → «Каліфорнія тунець» (картка) → товари-калібри.
  *
- * @return array{0: int, 1: string, 2: int[]} [ID розділу, назва картки, ID папок від розділу вглиб]
+ * @return array{0: int, 1: string, 2: int[], 3: int} [ID розділу, назва картки, ID папок від розділу вглиб, ID категорії картки]
  */
 function raky_product_placement(WC_Product $product): array {
 	$ids = $product->get_category_ids();
@@ -120,10 +120,17 @@ function raky_product_placement(WC_Product $product): array {
 		$ancestors = get_ancestors($id, 'product_cat', 'taxonomy'); // від батька до верхньої категорії
 		if ($ancestors) {
 			$top = (int) array_pop($ancestors);
-			return [$top, get_term($id, 'product_cat')->name, array_map('intval', array_reverse($ancestors))];
+			return [$top, get_term($id, 'product_cat')->name, array_map('intval', array_reverse($ancestors)), (int) $id];
 		}
 	}
-	return [(int) ($ids[0] ?? 0), '', []];
+	return [(int) ($ids[0] ?? 0), '', [], 0];
+}
+
+/** Фото категорії («Мініатюра» в «Товари → Категорії») розміру картки або null. */
+function raky_category_image(int $term_id): ?string {
+	$attachment = $term_id ? (int) get_term_meta($term_id, 'thumbnail_id', true) : 0;
+	$url        = $attachment ? wp_get_attachment_image_url($attachment, 'woocommerce_thumbnail') : false;
+	return raky_public_url($url ?: null);
 }
 
 /** Порядок категорії з перетягування в адмінці (поле order WooCommerce). */
@@ -134,7 +141,7 @@ function raky_category_order(int $term_id): int {
 /**
  * Папки для меню: parent — розділ або інша папка, порядок — як у дереві категорій адмінки.
  *
- * @return array<int, array{id: int, category_id: int, parent: int, name: string}>
+ * @return array<int, array{id: int, category_id: int, parent: int, name: string, image: ?string}>
  */
 function raky_subcategories(array $ids): array {
 	$out = [];
@@ -146,6 +153,8 @@ function raky_subcategories(array $ids): array {
 			'category_id' => (int) $path[0],
 			'parent'      => (int) $term->parent,
 			'name'        => $term->name,
+			// Фото картки-папки; без нього застосунок і сайт беруть фото найдешевшого товару всередині.
+			'image'       => raky_category_image((int) $id),
 			'sort'        => array_map('raky_category_order', $path),
 		];
 	}
@@ -165,14 +174,16 @@ function raky_rest_catalog(): array {
 		'order'   => 'ASC',
 	]);
 
-	$items    = [];
-	$term_ids = [];
+	$items        = [];
+	$term_ids     = [];
+	$group_images = [];
 	$sub_ids  = [];
 	foreach ($products as $product) {
 		if (raky_product_hidden($product)) {
 			continue;
 		}
-		[$category_id, $group, $path] = raky_product_placement($product);
+		[$category_id, $group, $path, $group_id] = raky_product_placement($product);
+		$group_images[$group_id] ??= raky_category_image($group_id);
 		// Товари з «Без категорії» чекають на розподіл і клієнтам не показуються.
 		if (! $category_id || $category_id === raky_default_category()) {
 			continue;
@@ -200,6 +211,8 @@ function raky_rest_catalog(): array {
 			'image_large' => raky_public_url($large ?: null),
 			// Товари однієї підкатегорії показуються в застосунку як калібри одного товару.
 			'group'        => $group,
+			// Фото категорії-картки з адмінки; без нього картка показує фото найдешевшого калібру.
+			'group_image'  => $group_images[$group_id],
 			'caliber'      => (string) $product->get_meta(RAKY_META_CALIBER),
 			'caliber_hint' => (string) $product->get_meta(RAKY_META_CALIBER_HINT),
 			'per_kg'       => (float) $product->get_meta(RAKY_META_PER_KG),

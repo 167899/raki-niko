@@ -67,6 +67,8 @@ function raky_site_cards(array $products): array {
 		$cheapest = array_reduce($members, static fn (?array $best, array $item) => $best === null || $item['price'] < $best['price'] ? $item : $best);
 		$cards[]  = [
 			'product' => $cheapest,
+			// Фото категорії з адмінки важливіше за фото товару.
+			'image'   => ($cheapest['group'] !== '' ? ($cheapest['group_image'] ?? null) : null) ?: $cheapest['image'],
 			'title'   => $cheapest['group'] !== '' ? $cheapest['group'] : $cheapest['name'],
 			'from'    => count($members) > 1,
 			'members' => $members,
@@ -123,6 +125,7 @@ function raky_site_cards_at(int $category_id, int $folder = 0): array {
 		$cheapest = array_reduce($members, static fn (?array $best, array $item) => $best === null || $item['price'] < $best['price'] ? $item : $best);
 		$cards[]  = [
 			'product' => $cheapest,
+			'image'   => ($sub['image'] ?? null) ?: $cheapest['image'],
 			'title'   => $sub['name'],
 			'from'    => count($members) > 1,
 			'members' => $members,
