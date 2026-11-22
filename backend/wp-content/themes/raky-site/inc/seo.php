@@ -156,29 +156,47 @@ function raky_site_schema(): array {
 		];
 	}
 	if ($current['type'] === 'product') {
-		$product  = $current['product'];
-		$category = raky_site_category($product['category_id']);
-		$out[]    = [
+		$product = $current['product'];
+		// Найдешевша зона доставки: точна ціна залежить від району, Google приймає одне число.
+		$fees = array_filter(array_map(static fn (array $zone) => (float) $zone['fee'], $config['zones'] ?? []));
+		// «category» не ставимо: Google чекає там свою таксономію товарів, а не назву розділу магазину.
+		$out[] = [
 			'@context'    => 'https://schema.org',
 			'@type'       => 'Product',
 			'name'        => $product['name'],
 			'description' => $product['description'] ?: $product['name'],
 			'image'       => array_values(array_filter([$product['image_large'], $product['image']])),
 			'sku'         => $product['sku'] ?: (string) $product['id'],
-			'category'    => $category['name'] ?? '',
 			'brand'       => ['@type' => 'Brand', 'name' => RAKY_SITE_NAME],
 			'offers'      => [
-				'@type'              => 'Offer',
-				'url'                => raky_site_product_url($product['id']),
-				'priceCurrency'      => 'UAH',
-				'price'              => $product['price'],
-				'availability'       => $product['in_stock'] ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-				'itemCondition'      => 'https://schema.org/NewCondition',
-				'priceSpecification' => [
+				'@type'                  => 'Offer',
+				'url'                    => raky_site_product_url($product['id']),
+				'priceCurrency'          => 'UAH',
+				'price'                  => $product['price'],
+				'availability'           => $product['in_stock'] ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+				'itemCondition'          => 'https://schema.org/NewCondition',
+				'priceSpecification'     => [
 					'@type'          => 'UnitPriceSpecification',
 					'price'          => $product['price'],
 					'priceCurrency'  => 'UAH',
 					'unitText'       => raky_site_unit_name($product['unit']),
+				],
+				// Продукти харчування належної якості не повертаються (перелік неповоротних товарів, постанова КМУ № 172).
+				'hasMerchantReturnPolicy' => [
+					'@type'                => 'MerchantReturnPolicy',
+					'applicableCountry'    => 'UA',
+					'returnPolicyCategory' => 'https://schema.org/MerchantReturnNotPermitted',
+				],
+				// Доставка по місту в день замовлення.
+				'shippingDetails'        => [
+					'@type'               => 'OfferShippingDetails',
+					'shippingRate'        => ['@type' => 'MonetaryAmount', 'value' => $fees ? min($fees) : 0, 'currency' => 'UAH'],
+					'shippingDestination' => ['@type' => 'DefinedRegion', 'addressCountry' => 'UA'],
+					'deliveryTime'        => [
+						'@type'        => 'ShippingDeliveryTime',
+						'handlingTime' => ['@type' => 'QuantitativeValue', 'minValue' => 0, 'maxValue' => 1, 'unitCode' => 'DAY'],
+						'transitTime'  => ['@type' => 'QuantitativeValue', 'minValue' => 0, 'maxValue' => 1, 'unitCode' => 'DAY'],
+					],
 				],
 			],
 		];

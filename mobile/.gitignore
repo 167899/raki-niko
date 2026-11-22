@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Скриншоти для магазинів: знімаються й збираються скриптами store/capture.mjs і store/compose.mjs
+store/raw/
+store/out/
