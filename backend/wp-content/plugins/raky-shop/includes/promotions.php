@@ -159,6 +159,47 @@ add_action('woocommerce_coupon_options_save', static function ($post_id, $coupon
 
 /** Рекомендований розмір картинки банера; підказка в адмінці бере його звідси. */
 const RAKY_BANNER_IMAGE = '1200×340 пікселів';
+const RAKY_BANNER_RATIO = 1200 / 340;
+
+/**
+ * Що завантажено в банер: розмір, формат, вага й чи підходить картинка. Та сама перевірка в скрипті вибору картинки нижче.
+ * Пропорції з відхиленням до 5% вважаємо правильними.
+ */
+function raky_banner_image_info(int $id): string {
+	$meta = $id ? wp_get_attachment_metadata($id) : null;
+	if (empty($meta['width']) || empty($meta['height'])) {
+		return '';
+	}
+	$width  = (int) $meta['width'];
+	$height = (int) $meta['height'];
+	$file   = get_attached_file($id);
+	$bytes  = (int) ($meta['filesize'] ?? ($file && is_file($file) ? filesize($file) : 0));
+	$type   = strtoupper((string) pathinfo((string) $file, PATHINFO_EXTENSION));
+	$parts  = [sprintf('%d×%d пікселів', $width, $height)];
+	if ($type !== '') {
+		$parts[] = $type === 'JPEG' ? 'JPG' : $type;
+	}
+	if ($bytes) {
+		$parts[] = $bytes >= 1048576 ? number_format_i18n($bytes / 1048576, 1) . ' МБ' : round($bytes / 1024) . ' КБ';
+	}
+	$notes = [];
+	$ratio = $width / $height;
+	if (abs($ratio / RAKY_BANNER_RATIO - 1) > 0.05) {
+		$notes[] = sprintf('пропорції %s : 1 замість 3,5 : 1 — банер буде %s за інші', number_format_i18n($ratio, 1), $ratio < RAKY_BANNER_RATIO ? 'вищим' : 'нижчим');
+	}
+	if ($width < 1200) {
+		$notes[] = 'замала, на великих екранах буде розмитою (потрібно від 1200 пікселів завширшки)';
+	}
+	if ($bytes > 500 * 1024) {
+		$notes[] = 'важка, сторінка вантажитиметься довше (краще до 500 КБ)';
+	}
+	return sprintf(
+		'<p class="raky-banner-info" style="margin:4px 0;color:%s">Завантажено: %s. %s</p>',
+		$notes ? '#b32d2e' : '#008a20',
+		esc_html(implode(' · ', $parts)),
+		esc_html($notes ? '⚠ ' . implode('; ', $notes) . '.' : '✓ Розмір підходить.')
+	);
+}
 
 add_action('add_meta_boxes_raky_banner', static function () {
 	add_meta_box('raky_banner_box', 'Параметри банера', static function (WP_Post $post) {
@@ -226,6 +267,7 @@ function raky_banner_target_box(WP_Post $post, string $target, string $name): vo
 			. 'Поки картинку не завантажено, банер показується з кольором фону.</p>',
 			esc_html(RAKY_BANNER_IMAGE)
 		);
+		echo raky_banner_image_info((int) get_post_thumbnail_id($post->ID)); // phpcs:ignore WordPress.Security.EscapeOutput — зібрано з екранованих частин
 	} else {
 		$own = (int) get_post_meta($post->ID, '_raky_site_image', true);
 		$own = $own > 0 && wp_attachment_is_image($own) ? $own : 0;
@@ -233,12 +275,14 @@ function raky_banner_target_box(WP_Post $post, string $target, string $name): vo
 			'<div class="raky-site-image" style="margin:4px 0 8px">'
 			. '<input type="hidden" name="raky_site_image" value="%1$s">'
 			. '<div class="raky-site-image__preview" style="max-width:420px;margin-bottom:6px">%2$s</div>'
+			. '<div class="raky-site-image__info">%5$s</div>'
 			. '<button type="button" class="button raky-site-image__pick">%3$s</button> '
 			. '<button type="button" class="button-link raky-site-image__clear"%4$s>Прибрати</button></div>',
 			esc_attr((string) $own),
 			$own ? wp_get_attachment_image($own, 'medium', false, ['style' => 'width:100%;height:auto;border-radius:8px']) : '', // phpcs:ignore WordPress.Security.EscapeOutput
 			$own ? 'Замінити картинку для сайту' : 'Обрати картинку для сайту',
-			$own ? '' : ' hidden'
+			$own ? '' : ' hidden',
+			raky_banner_image_info($own) // phpcs:ignore WordPress.Security.EscapeOutput — зібрано з екранованих частин
 		);
 		echo '<p class="description">Розмір від 1200×340 пікселів, краще 2400×680 для великих екранів — пропорції ті самі. '
 			. 'Поки своєї картинки немає, сайт показує картинку застосунку.</p>';
@@ -258,6 +302,20 @@ jQuery(function ($) {
 	var box = $('.raky-site-image');
 	if (!box.length) return;
 	var frame;
+	// Як raky_banner_image_info() у PHP: розмір, формат, вага й чи підходить картинка.
+	var info = function (image) {
+		if (!image.width || !image.height) return '';
+		var ratio = image.width / image.height, target = 1200 / 340, notes = [];
+		var bytes = image.filesizeInBytes || 0;
+		var parts = [image.width + '×' + image.height + ' пікселів', (image.subtype === 'jpeg' ? 'jpg' : image.subtype || '').toUpperCase()];
+		if (bytes) parts.push(bytes >= 1048576 ? (bytes / 1048576).toFixed(1).replace('.', ',') + ' МБ' : Math.round(bytes / 1024) + ' КБ');
+		if (Math.abs(ratio / target - 1) > 0.05) notes.push('пропорції ' + ratio.toFixed(1).replace('.', ',') + ' : 1 замість 3,5 : 1 — банер буде ' + (ratio < target ? 'вищим' : 'нижчим') + ' за інші');
+		if (image.width < 1200) notes.push('замала, на великих екранах буде розмитою (потрібно від 1200 пікселів завширшки)');
+		if (bytes > 500 * 1024) notes.push('важка, сторінка вантажитиметься довше (краще до 500 КБ)');
+		return $('<p>', { 'class': 'raky-banner-info' })
+			.css({ margin: '4px 0', color: notes.length ? '#b32d2e' : '#008a20' })
+			.text('Завантажено: ' + parts.filter(Boolean).join(' · ') + '. ' + (notes.length ? '⚠ ' + notes.join('; ') + '.' : '✓ Розмір підходить.'));
+	};
 	box.on('click', '.raky-site-image__pick', function () {
 		frame = frame || wp.media({ title: 'Картинка банера для сайту', button: { text: 'Обрати' }, library: { type: 'image' }, multiple: false });
 		frame.off('select').on('select', function () {
@@ -265,6 +323,7 @@ jQuery(function ($) {
 			var url = (image.sizes && image.sizes.medium_large ? image.sizes.medium_large : image).url;
 			box.find('input').val(image.id);
 			box.find('.raky-site-image__preview').html($('<img>', { src: url, alt: '' }).css({ width: '100%', height: 'auto', borderRadius: '8px' }));
+			box.find('.raky-site-image__info').html(info(image));
 			box.find('.raky-site-image__pick').text('Замінити картинку для сайту');
 			box.find('.raky-site-image__clear').prop('hidden', false);
 			$('input[name="raky_site_background"][value="image"]').prop('checked', true);
@@ -274,6 +333,7 @@ jQuery(function ($) {
 	box.on('click', '.raky-site-image__clear', function () {
 		box.find('input').val('');
 		box.find('.raky-site-image__preview').empty();
+		box.find('.raky-site-image__info').empty();
 		box.find('.raky-site-image__pick').text('Обрати картинку для сайту');
 		$(this).prop('hidden', true);
 	});
