@@ -1199,6 +1199,38 @@ input[aria-invalid='true'] {
   gap: 8px;
 }
 
+/* Розклад суми над «Разом», коли до товару є «Додатково». */
+.lines {
+  display: grid;
+  gap: 3px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.lines[hidden] {
+  display: none;
+}
+
+.lines__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.lines__row span:last-child {
+  white-space: nowrap;
+}
+
+.lines__label {
+  margin: 3px 0 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
 .sum {
   display: flex;
   justify-content: space-between;

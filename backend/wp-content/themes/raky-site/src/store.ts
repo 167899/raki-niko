@@ -3,11 +3,12 @@
  * Правила кошика ті самі, що в застосунку (mobile/src/shop.tsx): рядок — товар і смак,
  * повторне додавання збільшує вагу й докладає «Додатково».
  */
-import type { AddonCounts, Catalog, OrderItem, Product } from '@app/api';
+import { addonCost } from '@app/addons';
+import type { Addon, AddonCounts, Catalog, OrderItem, Product } from '@app/api';
 import { phoneDigits } from '@app/format';
 
 export type CartLine = { productId: number; flavor: string; quantity: number; addons?: AddonCounts };
-export type ChosenAddon = { name: string; quantity: number; price: number };
+export type ChosenAddon = Addon & { quantity: number; total: number };
 export type ResolvedLine = CartLine & { product: Product; unitPrice: number; extras: ChosenAddon[]; total: number };
 export type User = { name: string; phone: string; email: string };
 export type SavedOrder = { id: number; key: string; lines: CartLine[] };
@@ -184,9 +185,9 @@ export function resolveLines(cart: CartLine[], catalog: Catalog): ResolvedLine[]
     const unitPrice = product.price + (product.flavors.find((flavor) => flavor.name === line.flavor)?.extra ?? 0);
     const extras = (product.addons ?? []).flatMap((addon) => {
       const count = line.addons?.[addon.name] ?? 0;
-      return count > 0 ? [{ name: addon.name, quantity: count, price: addon.price }] : [];
+      return count > 0 ? [{ ...addon, quantity: count, total: addonCost(addon, count) }] : [];
     });
-    const extrasTotal = extras.reduce((sum, addon) => sum + addon.price * addon.quantity, 0);
+    const extrasTotal = extras.reduce((sum, addon) => sum + addon.total, 0);
     return [{ ...line, product, unitPrice, extras, total: unitPrice * line.quantity + extrasTotal }];
   });
 }

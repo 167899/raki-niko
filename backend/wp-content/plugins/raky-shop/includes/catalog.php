@@ -96,15 +96,38 @@ function raky_product_flavors(WC_Product $product): array {
 
 /**
  * «Додатково» до товару: рукавички, пакети, набори. Клієнт обирає кількість кожного, ціна — за штуку.
+ * default — скільки штук уже додано, коли клієнт відкриває товар (набір паличок до суші), клієнт може прибрати.
+ * default_price — ціна штуки в межах цих default (перший набір безкоштовно), null — звичайна ціна. Сума: raky_addon_cost().
  *
- * @return array<int, array{name: string, price: float}>
+ * @return array<int, array{name: string, price: float, default: int, default_price: float|null}>
  */
 function raky_product_addons(WC_Product $product): array {
 	$stored = $product->get_meta(RAKY_META_ADDONS); // без поля — порожній рядок
 	return array_values(array_map(
-		static fn (array $addon) => ['name' => (string) $addon['name'], 'price' => (float) $addon['price']],
+		static fn (array $addon) => [
+			'name'          => (string) $addon['name'],
+			'price'         => (float) $addon['price'],
+			'default'       => (int) ($addon['default'] ?? 0),
+			'default_price' => isset($addon['default_price']) && $addon['default_price'] !== '' ? (float) $addon['default_price'] : null,
+		],
 		array_filter(is_array($stored) ? $stored : [], 'is_array')
 	));
+}
+
+/** Вартість $count штук додатка: перші default — за default_price (якщо задана), решта — за price. Як addonCost() у застосунку. */
+function raky_addon_cost(array $addon, int $count): float {
+	$first = min($count, (int) $addon['default']);
+	return $first * ($addon['default_price'] ?? $addon['price']) + ($count - $first) * $addon['price'];
+}
+
+/** Пояснення до пільгових штук для замовлення й бота: «1 шт. безкоштовно», «2 шт. по 5 ₴»; без пільги — порожньо. */
+function raky_addon_note(array $addon, int $count): string {
+	$included = min($count, (int) $addon['default']);
+	$first    = $addon['default_price'];
+	if ($included < 1 || $first === null || (float) $first === (float) $addon['price']) {
+		return '';
+	}
+	return sprintf('%d шт. %s', $included, $first > 0 ? 'по ' . wc_format_localized_price((string) $first) . ' ₴' : 'безкоштовно');
 }
 
 /**

@@ -223,3 +223,13 @@ function raky_site_date(string $iso): string {
 	}
 	return wp_date('j', $time) . ' ' . $months[(int) wp_date('n', $time) - 1] . ' ' . wp_date('Y', $time);
 }
+
+/** Підпис кнопки «Додатково»: «Рукавички +10 ₴» або «Набір (1 шт. безкоштовно, далі +15 ₴)». Як addonLabel() у застосунку. */
+function raky_site_addon_label(array $addon): string {
+	$included = (int) ($addon['default'] ?? 0);
+	$first    = $addon['default_price'] ?? null;
+	if ($included > 0 && $first !== null && (float) $first !== (float) $addon['price']) {
+		return sprintf('%s (%d шт. %s, далі +%s)', $addon['name'], $included, $first > 0 ? raky_site_money($first) : 'безкоштовно', raky_site_money($addon['price']));
+	}
+	return $addon['price'] > 0 ? $addon['name'] . ' +' . raky_site_money($addon['price']) : $addon['name'];
+}

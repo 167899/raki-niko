@@ -1,4 +1,5 @@
 /** Сторінка товару: смак, «Додатково», вага й додавання в кошик (як ProductScreen застосунку). */
+import { addonCost, addonLineName, addonSum } from '@app/addons';
 import type { Addon, Flavor } from '@app/api';
 import type { Unit } from '@app/format';
 import { kgPerUnit, money, quantity, unitPrice } from '@app/format';
@@ -24,7 +25,8 @@ export function initProduct() {
   const product = JSON.parse(root.dataset.product ?? '{}') as ProductData;
   let count = product.min;
   let flavor = product.flavors[0]?.name ?? '';
-  const addons: Record<string, number> = {};
+  // Поки клієнт не змінював кількість, діє «за замовчуванням» з адмінки (набір паличок до суші).
+  const addons: Record<string, number> = Object.fromEntries(product.addons.map((addon) => [addon.name, addon.default ?? 0]));
 
   const amount = root.querySelector<HTMLElement>('[data-amount]');
   const total = root.querySelector<HTMLElement>('[data-total]');
@@ -32,14 +34,33 @@ export function initProduct() {
   const pieces = root.querySelector<HTMLElement>('[data-pieces]');
   const add = root.querySelector<HTMLButtonElement>('[data-add]');
   const after = root.querySelector<HTMLElement>('[data-after]');
+  const lines = root.querySelector<HTMLElement>('[data-lines]');
 
   const unitCost = () => product.price + (product.flavors.find((item) => item.name === flavor)?.extra ?? 0);
-  const addonsCost = () => product.addons.reduce((sum, addon) => sum + addon.price * (addons[addon.name] ?? 0), 0);
+  const addonsCost = () => product.addons.reduce((sum, addon) => sum + addonCost(addon, addons[addon.name] ?? 0), 0);
 
   const paint = () => {
     if (amount) amount.textContent = quantity(count, product.unit);
-    if (price) price.textContent = unitPrice(unitCost(), product.unit);
+    const extras = product.addons.filter((addon) => (addons[addon.name] ?? 0) > 0);
+    if (price) price.textContent = extras.length ? 'Разом' : unitPrice(unitCost(), product.unit);
     if (total) total.textContent = money(unitCost() * count + addonsCost());
+    if (lines) {
+      lines.hidden = extras.length === 0;
+      const row = (name: string, sum: string) => {
+        const item = document.createElement('div');
+        item.className = 'lines__row';
+        item.append(Object.assign(document.createElement('span'), { textContent: name }), Object.assign(document.createElement('span'), { textContent: sum }));
+        return item;
+      };
+      lines.replaceChildren(
+        row(`${quantity(count, product.unit)} × ${unitPrice(unitCost(), product.unit)}`, money(unitCost() * count)),
+        Object.assign(document.createElement('p'), { className: 'lines__label', textContent: 'Додатково' }),
+        ...extras.map((addon) => {
+          const picks = addons[addon.name] ?? 0;
+          return row(addonLineName(addon, picks), addonSum(addonCost(addon, picks)));
+        }),
+      );
+    }
     if (pieces) {
       const show = product.per_kg > 0 && kgPerUnit(product.unit) > 0;
       pieces.hidden = !show;

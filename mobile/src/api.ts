@@ -11,7 +11,11 @@ export type Category = { id: number; name: string; slug: string };
 export type Flavor = { name: string; extra: number };
 
 /** «Додатково»: рукавички, пакети, набори. price — за штуку. */
-export type Addon = { name: string; price: number };
+/**
+ * default — скільки штук уже додано, коли клієнт відкриває товар (набір паличок до суші);
+ * default_price — ціна штуки в межах цих default (null — звичайна ціна). Розрахунок: addonCost() у src/addons.ts.
+ */
+export type Addon = { name: string; price: number; default?: number; default_price?: number | null };
 
 /** Обрані додатки: назва → кількість штук. */
 export type AddonCounts = Record<string, number>;

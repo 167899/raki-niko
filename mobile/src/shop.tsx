@@ -1,13 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AddonCounts, api, ApiError, Banner, Catalog, Config, News, Order, OrderItem, OrderStatusCode, Product, Referral } from './api';
+import { addonCost } from './addons';
+import { Addon, AddonCounts, api, ApiError, Banner, Catalog, Config, News, Order, OrderItem, OrderStatusCode, Product, Referral } from './api';
 import { phoneDigits } from './format';
 import { linesFromOrder } from './orderLines';
 import { getPushToken } from './push';
 
 /** addons: «Додатково» до цього рядка, назва → штук. Старі записи кошика поля не мають. */
 export type CartLine = { productId: number; flavor: string; quantity: number; addons?: AddonCounts };
-export type ChosenAddon = { name: string; quantity: number; price: number };
+export type ChosenAddon = Addon & { quantity: number; total: number };
 /** total — товар разом із додатками. */
 export type ResolvedLine = CartLine & { product: Product; unitPrice: number; extras: ChosenAddon[]; total: number };
 
@@ -153,9 +154,9 @@ function useShopState() {
         // Додаток, який прибрали з товару в адмінці, з кошика зникає.
         const extras = (product.addons ?? []).flatMap((addon) => {
           const count = line.addons?.[addon.name] ?? 0;
-          return count > 0 ? [{ name: addon.name, quantity: count, price: addon.price }] : [];
+          return count > 0 ? [{ ...addon, quantity: count, total: addonCost(addon, count) }] : [];
         });
-        const extrasTotal = extras.reduce((sum, addon) => sum + addon.price * addon.quantity, 0);
+        const extrasTotal = extras.reduce((sum, addon) => sum + addon.total, 0);
         return [{ ...line, product, unitPrice, extras, total: unitPrice * line.quantity + extrasTotal }];
       }),
     [cart, productById],

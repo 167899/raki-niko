@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { addonCost, addonLabel, addonLineName, addonSum } from '../addons';
 import { AddonCounts } from '../api';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -56,8 +57,13 @@ export function ProductScreen({ productId }: { productId: number }) {
   const unitCost = product.price + (chosen?.extra ?? 0);
   const offered = product.addons ?? [];
   // Калібри — різні товари з різними додатками, тож лічимо лише ті, що є в поточного.
-  const picked = Object.fromEntries(offered.flatMap((addon) => ((addons[addon.name] ?? 0) > 0 ? [[addon.name, addons[addon.name]]] : [])));
-  const addonsCost = offered.reduce((sum, addon) => sum + addon.price * (picked[addon.name] ?? 0), 0);
+  // Поки клієнт не змінював кількість, діє «за замовчуванням» з адмінки (набір паличок до суші).
+  const extras = offered.flatMap((addon) => {
+    const picks = addons[addon.name] ?? addon.default ?? 0;
+    return picks > 0 ? [{ ...addon, count: picks, cost: addonCost(addon, picks) }] : [];
+  });
+  const picked: AddonCounts = Object.fromEntries(extras.map((addon) => [addon.name, addon.count]));
+  const addonsCost = extras.reduce((sum, addon) => sum + addon.cost, 0);
 
   const change = (update: () => void) => {
     update();
@@ -123,7 +129,7 @@ export function ProductScreen({ productId }: { productId: number }) {
                 {offered.map((item) => (
                   <AddonChip
                     key={item.name}
-                    label={item.price > 0 ? `${item.name} +${money(item.price)}` : item.name}
+                    label={addonLabel(item)}
                     count={picked[item.name] ?? 0}
                     onChange={(next) => change(() => setAddons((current) => ({ ...current, [item.name]: next })))}
                   />
@@ -159,10 +165,27 @@ export function ProductScreen({ productId }: { productId: number }) {
         </View>
       </ScrollView>
       <View style={shared.foot}>
+        {extras.length > 0 && (
+          <View style={styles.lines}>
+            <View style={styles.line}>
+              <Text style={styles.lineName}>
+                {quantity(count, product.unit)} × {unitPrice(unitCost, product.unit)}
+              </Text>
+              <Text style={styles.lineSum}>{money(unitCost * count)}</Text>
+            </View>
+            <Text style={styles.lineLabel}>Додатково</Text>
+            {extras.map((addon) => (
+              <View key={addon.name} style={styles.line}>
+                <Text style={styles.lineName}>
+                  {addonLineName(addon, addon.count)}
+                </Text>
+                <Text style={styles.lineSum}>{addonSum(addon.cost)}</Text>
+              </View>
+            ))}
+          </View>
+        )}
         <View style={[shared.sum, { marginBottom: 8 }]}>
-          <Text style={styles.price}>
-            {unitPrice(unitCost, product.unit)}
-          </Text>
+          <Text style={styles.price}>{extras.length > 0 ? 'Разом' : unitPrice(unitCost, product.unit)}</Text>
           <Text style={styles.total}>{money(unitCost * count + addonsCost)}</Text>
         </View>
         {added ? (
@@ -221,6 +244,12 @@ const styles = StyleSheet.create({
   },
   amount: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '500', color: colors.ink },
   price: { fontSize: 15, color: colors.text },
+  // Розклад суми над «Разом», коли до товару є «Додатково».
+  lines: { gap: 3, paddingBottom: 8, marginBottom: 8, borderBottomWidth: 1, borderBottomColor: colors.line },
+  line: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
+  lineLabel: { fontSize: 13, color: colors.text, marginTop: 3 },
+  lineName: { flex: 1, fontSize: 14, color: colors.ink },
+  lineSum: { fontSize: 14, color: colors.ink },
   total: { fontSize: 19, fontWeight: '500', color: colors.ink },
   actions: { flexDirection: 'row', gap: 8 },
 });

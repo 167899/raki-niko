@@ -144,33 +144,79 @@ function raky_render_sky_price(array $ids, float $factor, array $products): void
 	printf('<p class="form-field"><label>Ціна з каси</label><span>%s = %s</span></p>', esc_html($formula), esc_html($result));
 }
 
-/** Рядок списку «назва + сума»: $kind flavor (смак, доплата) або addon (додатково, ціна за штуку). */
-function raky_option_row(string $kind, string $name = '', string $amount = ''): string {
-	$addon = $kind === 'addon';
-	return sprintf(
-		'<div class="raky-option" style="display:flex;gap:6px;margin-bottom:6px">'
-		. '<input name="raky_%1$s_name[]" placeholder="%2$s" value="%3$s" style="flex:2;float:none;width:auto;min-width:0">'
-		. '<input name="raky_%1$s_extra[]" type="number" min="0" step="0.01" placeholder="%4$s" value="%5$s" style="flex:1;float:none;width:auto;min-width:0">'
-		. '<button type="button" class="button raky-option-remove" style="flex:none" aria-label="Видалити">×</button></div>',
-		$kind,
-		$addon ? 'Назва, напр. Рукавички' : 'Назва смаку',
-		esc_attr($name),
-		$addon ? 'Ціна за шт., ₴' : 'Доплата, ₴',
-		esc_attr($amount)
-	);
+/** Колонки списків у «Основне»: [назва поля, підпис над колонкою, підказка в порожньому полі, ширина]. */
+function raky_option_columns(string $kind): array {
+	return $kind === 'addon'
+		? [
+			['name', 'Назва', 'Напр. Рукавички (1 пара)', 3],
+			['extra', 'Ціна за шт., ₴', '0', 1],
+			['default', 'За замовч., шт.', '0', 1],
+			['default_price', 'Ціна за замовч., ₴', 'як звичайна', 1],
+		]
+		: [
+			['name', 'Назва смаку', 'Напр. Гострі', 3],
+			['extra', 'Доплата за одиницю, ₴', '0', 1],
+		];
+}
+
+/**
+ * Рядок списку: $kind flavor (смак, доплата) або addon (додатково).
+ * У «Додатково» ще кількість за замовчуванням (стільки штук уже додано, коли клієнт відкриває товар)
+ * і ціна штуки в межах цієї кількості (порожньо — звичайна ціна): перший набір паличок безкоштовно, наступні — за повну ціну.
+ */
+function raky_option_row(string $kind, array $values = []): string {
+	$html = '<div class="raky-option" style="display:flex;gap:6px;margin-bottom:6px">';
+	foreach (raky_option_columns($kind) as [$field, $label, $hint, $grow]) {
+		$number = $field !== 'name';
+		$html  .= sprintf(
+			'<input name="raky_%s_%s[]"%s placeholder="%s" title="%s" aria-label="%s" value="%s" style="flex:%d;float:none;width:auto;min-width:0">',
+			esc_attr($kind),
+			esc_attr($field),
+			$number ? ' type="number" min="0" step="' . ($field === 'default' ? '1" max="99' : '0.01') . '"' : '',
+			esc_attr($hint),
+			esc_attr($label),
+			esc_attr($label),
+			esc_attr((string) ($values[$field] ?? '')),
+			$grow
+		);
+	}
+	return $html . '<button type="button" class="button raky-option-remove" style="flex:none" aria-label="Видалити">×</button></div>';
+}
+
+/** Підписи над колонками списку, вирівняні так само, як поля рядка. */
+function raky_option_head(string $kind): string {
+	$html = '<div style="display:flex;gap:6px;margin-bottom:4px;font-size:12px;color:#646970">';
+	foreach (raky_option_columns($kind) as [, $label, , $grow]) {
+		$html .= sprintf('<span style="flex:%d;min-width:0">%s</span>', $grow, esc_html($label));
+	}
+	// Місце під кнопку «×».
+	return $html . '<span style="flex:none;width:30px"></span></div>';
 }
 
 /** Смаки (доплата за кілограм або штуку) і «Додатково» (ціна за штуку): окремий рядок на кожен. */
 function raky_render_flavor_rows(): void {
 	$product = wc_get_product(get_the_ID());
-	$lists   = [
-		'flavor' => ['Смаки й доплата за одиницю', 'Додати смак', $product ? array_map(static fn ($row) => [$row['name'], $row['extra']], raky_product_flavors($product)) : []],
-		'addon'  => ['Додатково: рукавички, пакети, набори (ціна за штуку)', 'Додати', $product ? array_map(static fn ($row) => [$row['name'], $row['price']], raky_product_addons($product)) : []],
+	// Нулі не показуємо: порожнє поле читається легше. Ціну за замовчуванням 0 («безкоштовно») показуємо.
+	$amount = static fn ($value) => $value > 0 ? (string) $value : '';
+	$lists  = [
+		'flavor' => ['Смаки й доплата за одиницю', 'Додати смак', $product ? array_map(static fn ($row) => ['name' => $row['name'], 'extra' => $amount($row['extra'])], raky_product_flavors($product)) : []],
+		'addon'  => [
+			'Додатково: рукавички, пакети, набори. «За замовч.» — скільки штук уже додано, коли клієнт відкриває товар; «Ціна за замовч.» — ціна цих штук (0 — безкоштовно, порожньо — звичайна ціна), наступні — за звичайною',
+			'Додати',
+			$product ? array_map(static fn ($row) => [
+				'name'          => $row['name'],
+				'extra'         => $amount($row['price']),
+				'default'       => $amount($row['default']),
+				'default_price' => $row['default_price'] === null ? '' : (string) $row['default_price'],
+			], raky_product_addons($product)) : [],
+		],
 	];
 	foreach ($lists as $kind => [$title, $button, $rows]) {
-		printf('<div class="form-field" style="padding:9px 12px"><label style="float:none;margin:0 0 6px;display:block;width:auto">%s</label><div id="raky-%s-list">', esc_html($title), esc_attr($kind));
-		foreach ($rows as [$name, $amount]) {
-			echo raky_option_row($kind, $name, $amount > 0 ? (string) $amount : ''); // phpcs:ignore WordPress.Security.EscapeOutput
+		printf('<div class="form-field" style="padding:9px 12px"><label style="float:none;margin:0 0 6px;display:block;width:auto">%s</label>', esc_html($title));
+		echo raky_option_head($kind); // phpcs:ignore WordPress.Security.EscapeOutput
+		printf('<div id="raky-%s-list">', esc_attr($kind));
+		foreach ($rows as $values) {
+			echo raky_option_row($kind, $values); // phpcs:ignore WordPress.Security.EscapeOutput
 		}
 		printf('</div><button type="button" class="button raky-option-add" data-kind="%s">%s</button></div>', esc_attr($kind), esc_html($button));
 		printf('<template id="raky-%s-template">%s</template>', esc_attr($kind), raky_option_row($kind)); // phpcs:ignore WordPress.Security.EscapeOutput
@@ -228,12 +274,21 @@ add_action('woocommerce_admin_process_product_object', static function (WC_Produ
 	}
 	$product->update_meta_data(RAKY_META_FLAVORS, $flavors);
 	$names  = array_map('wp_unslash', (array) ($_POST['raky_addon_name'] ?? []));
-	$prices = (array) ($_POST['raky_addon_extra'] ?? []);
-	$addons = [];
+	$prices   = (array) ($_POST['raky_addon_extra'] ?? []);
+	$defaults = (array) ($_POST['raky_addon_default'] ?? []);
+	$firsts   = (array) ($_POST['raky_addon_default_price'] ?? []);
+	$addons   = [];
 	foreach ($names as $index => $name) {
-		$name = sanitize_text_field((string) $name);
+		$name  = sanitize_text_field((string) $name);
+		$first = trim((string) ($firsts[$index] ?? ''));
 		if ($name !== '') {
-			$addons[] = ['name' => $name, 'price' => max(0, (float) ($prices[$index] ?? 0))];
+			$addons[] = [
+				'name'          => $name,
+				'price'         => max(0, (float) ($prices[$index] ?? 0)),
+				'default'       => min(99, max(0, (int) ($defaults[$index] ?? 0))),
+				// Порожньо — звичайна ціна; 0 — безкоштовно.
+				'default_price' => $first === '' ? null : max(0, (float) $first),
+			];
 		}
 	}
 	$product->update_meta_data(RAKY_META_ADDONS, $addons);

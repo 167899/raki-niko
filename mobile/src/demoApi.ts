@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { addonCost } from './addons';
 import type { Api, Banner, Catalog, Config, NewOrder, News, Order, OrderItem, Product } from './api';
 import { ApiError } from './apiError';
 import zones from './demoZones.json';
@@ -99,7 +100,10 @@ const addonsOf = (item: OrderItem) => {
   return (item.addons ?? []).map((addon) => ({
     name: addon.name,
     quantity: addon.quantity,
-    total: (found.addons?.find((offered) => offered.name === addon.name)?.price ?? 0) * addon.quantity,
+    total: (() => {
+      const offered = found.addons?.find((item) => item.name === addon.name);
+      return offered ? addonCost(offered, addon.quantity) : 0;
+    })(),
   }));
 };
 

@@ -1,4 +1,5 @@
 /** Кошик (як CartScreen застосунку): вага, «Додатково», промокод, сума без доставки. */
+import { addonLabel } from '@app/addons';
 import type { Catalog } from '@app/api';
 import { isWeighed, money, quantity } from '@app/format';
 import { api, ApiError } from './api';
@@ -164,7 +165,7 @@ function rowHtml(line: ResolvedLine, index: number): string {
                 .map(
                   (addon) => `
               <span class="extra">
-                <span>${esc(addon.name)} +${esc(money(addon.price))}</span>
+                <span>${esc(addonLabel(addon))}</span>
                 <button type="button" class="extra__btn" data-action="addon-less" data-line="${index}" data-addon="${esc(addon.name)}" aria-label="Менше: ${esc(addon.name)}">${icon('minus', 14)}</button>
                 <span class="extra__count">${addon.quantity}</span>
                 <button type="button" class="extra__btn" data-action="addon-more" data-line="${index}" data-addon="${esc(addon.name)}" aria-label="Більше: ${esc(addon.name)}">${icon('plus', 14)}</button>

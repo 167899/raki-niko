@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { addonLabel } from '../addons';
 import { AddonChip, BottomBar, Button, Empty, ErrorText, Header, Icon, Input, Paragraph, ProductPicture, shared, Warn } from '../components/ui';
 import { isWeighed, money, quantity } from '../format';
 import { useNav } from '../nav';
@@ -46,7 +47,7 @@ function CartRow({ line }: { line: ResolvedLine }) {
             {line.extras.map((addon) => (
               <AddonChip
                 key={addon.name}
-                label={`${addon.name} +${money(addon.price)}`}
+                label={addonLabel(addon)}
                 count={addon.quantity}
                 onChange={(count) => setLineAddon(line, addon.name, count)}
               />

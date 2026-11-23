@@ -152,8 +152,20 @@ function raky_tg_order_text(WC_Order $order): string {
 			raky_quantity_label((float) $item->get_quantity(), $unit),
 			raky_tg_money((float) $item->get_total())
 		);
-		foreach ($addons[$item->get_id()] ?? [] as $addon) {
-			$lines[] = sprintf('   + %s × %d — %s', raky_tg_escape($addon['name']), $addon['quantity'], raky_tg_money($addon['total']));
+		// «Додатково» до товару: кожна позиція з кількістю й ціною, безкоштовні теж — їх треба покласти в пакет.
+		$extras = $addons[$item->get_id()] ?? [];
+		foreach ($extras as $addon) {
+			$lines[] = sprintf(
+				'   + %s × %d%s — %s',
+				raky_tg_escape($addon['name']),
+				$addon['quantity'],
+				// Коли все безкоштовно, пояснення про пільгові штуки зайве.
+				$addon['note'] !== '' && $addon['total'] > 0 ? ' (' . raky_tg_escape($addon['note']) . ')' : '',
+				$addon['total'] > 0 ? raky_tg_money($addon['total']) : 'безкоштовно'
+			);
+		}
+		if ($extras) {
+			$lines[] = '   = разом із додатковим: ' . raky_tg_money((float) $item->get_total() + array_sum(array_column($extras, 'total')));
 		}
 	}
 	foreach ($order->get_coupon_codes() as $code) {

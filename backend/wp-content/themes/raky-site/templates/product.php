@@ -84,7 +84,7 @@ raky_site_part('header');
 						<?php foreach ($product['addons'] as $addon) : ?>
 							<div class="addon" data-addon="<?php echo esc_attr($addon['name']); ?>">
 								<button type="button" class="chip addon__add" data-addon-add>
-									<?php echo esc_html($addon['name']); ?><?php echo $addon['price'] > 0 ? ' +' . esc_html(raky_site_money($addon['price'])) : ''; ?>
+									<?php echo esc_html(raky_site_addon_label($addon)); ?>
 									<span class="addon__count" data-addon-count hidden></span>
 								</button>
 								<button type="button" class="addon__minus" data-addon-minus aria-label="Прибрати: <?php echo esc_attr($addon['name']); ?>" hidden><?php echo raky_site_icon('minus', 14); ?></button>
@@ -105,6 +105,8 @@ raky_site_part('header');
 				<?php endif; ?>
 
 				<div class="buy">
+					<?php // Розклад суми, коли до товару є «Додатково»: заповнює src/product.ts. ?>
+					<div class="lines" data-lines hidden></div>
 					<div class="sum">
 						<span class="muted" data-unit-price><?php echo esc_html(raky_site_unit_price($product['price'], $product['unit'])); ?></span>
 						<strong class="sum__total" data-total><?php echo esc_html(raky_site_money($product['price'] * $product['min'])); ?></strong>
