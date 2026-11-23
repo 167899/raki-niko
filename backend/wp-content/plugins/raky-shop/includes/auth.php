@@ -79,7 +79,12 @@ function raky_rest_auth_start(WP_REST_Request $request) {
 		return raky_error('raky_auth_unavailable', 'Вхід через Telegram зараз недоступний.', 503);
 	}
 	$token = wp_generate_password(32, false);
-	set_transient(raky_auth_login_key($token), ['status' => 'pending'], RAKY_AUTH_TTL);
+	// Звідки входять — для статистики реєстрацій. Застосунок каже сам, сайт — за браузером.
+	$source = (string) $request->get_param('source');
+	if (! in_array($source, ['app', 'mobile', 'desktop'], true)) {
+		$source = wp_is_mobile() ? 'mobile' : 'desktop';
+	}
+	set_transient(raky_auth_login_key($token), ['status' => 'pending', 'source' => $source], RAKY_AUTH_TTL);
 	return [
 		'token'      => $token,
 		'url'        => 'https://t.me/' . rawurlencode($bot) . '?start=login_' . $token,
@@ -263,6 +268,7 @@ function raky_auth_tg_private(array $message): void {
 	if ($name === '' || $name === $phone) {
 		$name = trim(($contact['first_name'] ?? '') . ' ' . ($contact['last_name'] ?? ''));
 	}
+	raky_stats_signup($phone, (string) ($login['source'] ?? ''));
 	set_transient(raky_auth_login_key($token), ['status' => 'confirmed', 'phone' => $phone, 'name' => $name], RAKY_AUTH_TTL);
 	delete_transient('raky_tglogin_user_' . $from);
 	raky_auth_tg_reply($chat, '✅ Готово! Номер підтверджено. Поверніться на сайт або в застосунок Raki Niko.', $done);

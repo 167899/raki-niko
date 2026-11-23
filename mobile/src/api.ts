@@ -216,11 +216,11 @@ const liveApi = {
   quoteDelivery: (address: string) => request<DeliveryQuote>(`/delivery-quote&address=${encodeURIComponent(address)}`),
   checkPromo: (code: string, items: OrderItem[], phone: string) =>
     post<{ code: string; discount: number }>('/promo-check', { code, items, phone }),
-  createOrder: (order: NewOrder) => post<Order>('/orders', order),
+  createOrder: (order: NewOrder) => post<Order>('/orders', { ...order, source: 'app' }),
   // Телефон у тілі запиту, а не в адресі.
   referral: (phone: string) => post<Referral>('/referral', { phone }),
   order: (id: number, key: string) => request<Order>(`/orders/${id}&key=${encodeURIComponent(key)}`),
-  authStart: () => post<AuthStart>('/auth/telegram', {}),
+  authStart: () => post<AuthStart>('/auth/telegram', { source: 'app' }),
   authStatus: (token: string) => request<AuthStatus>(`/auth/telegram/${encodeURIComponent(token)}`),
   myOrders: (session: string) => request<MyOrders>('/me/orders', { headers: { [SESSION_HEADER]: session } }),
   favorites: (session: string) => request<MyFavorites>('/me/favorites', { headers: { [SESSION_HEADER]: session } }),

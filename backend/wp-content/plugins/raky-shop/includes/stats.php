@@ -12,11 +12,14 @@
  *   device  — пристрій нового відвідувача, item = mobile | desktop;
  *   source  — звідки прийшли (перша сторінка сеансу), item = google | facebook | … | direct | домен;
  *   app     — події застосунку, item = install-android | open-ios | …
+ *   signup  — реєстрація: перший вхід через Telegram із номером, якого ще не було.
+ *             item = mobile | desktop | app | earlier (увійшли до початку обліку, пристрій невідомий)
  */
 defined('ABSPATH') || exit;
 
 const RAKY_STATS_DB_VERSION = 1;
 const RAKY_STATS_KEEP_DAYS  = 800;
+const RAKY_STATS_SIGNUPS   = 'raky_signup_phones'; // [sha256(номера) => день першого входу]
 
 function raky_stats_table(): string {
 	global $wpdb;
@@ -41,16 +44,52 @@ function raky_stats_install(): void {
 }
 add_action('init', 'raky_stats_install');
 
-function raky_stats_add(string $metric, string $item = '', string $label = ''): void {
+function raky_stats_add(string $metric, string $item = '', string $label = '', string $day = ''): void {
 	global $wpdb;
 	$wpdb->query($wpdb->prepare(
 		'INSERT INTO ' . raky_stats_table() . ' (day, metric, item, label, hits) VALUES (%s, %s, %s, %s, 1)
 		 ON DUPLICATE KEY UPDATE hits = hits + 1, label = IF(VALUES(label) = \'\', label, VALUES(label))',
-		current_time('Y-m-d'),
+		$day !== '' ? $day : current_time('Y-m-d'),
 		$metric,
 		mb_substr($item, 0, 150),
 		mb_substr($label, 0, 150)
 	));
+}
+
+/**
+ * Номери, які вже реєструвалися. Перший раз заповнюємо з чинних сесій входу:
+ * ці клієнти увійшли до початку обліку, тож рахуємо їх у день входу з позначкою earlier.
+ */
+function raky_stats_signup_phones(): array {
+	$known = get_option(RAKY_STATS_SIGNUPS, null);
+	if (is_array($known)) {
+		return $known;
+	}
+	$known = [];
+	foreach (raky_auth_sessions() as $session) {
+		$hash = hash('sha256', (string) $session['phone']);
+		$day  = wp_date('Y-m-d', (int) $session['created']);
+		if (! isset($known[$hash]) || $day < $known[$hash]) {
+			$known[$hash] = $day;
+		}
+	}
+	update_option(RAKY_STATS_SIGNUPS, $known, false);
+	foreach ($known as $day) {
+		raky_stats_add('signup', 'earlier', '', $day);
+	}
+	return $known;
+}
+
+/** Клієнт підтвердив номер у боті. Рахуємо лише перший раз для номера. */
+function raky_stats_signup(string $phone, string $source): void {
+	$known = raky_stats_signup_phones();
+	$hash  = hash('sha256', $phone);
+	if (isset($known[$hash])) {
+		return;
+	}
+	$known[$hash] = current_time('Y-m-d');
+	update_option(RAKY_STATS_SIGNUPS, $known, false);
+	raky_stats_add('signup', in_array($source, ['mobile', 'desktop', 'app'], true) ? $source : 'desktop');
 }
 
 /** Домен, з якого прийшли → коротка назва джерела. */
@@ -147,6 +186,30 @@ function raky_stats_top(string $metric, string $from, int $limit = 0): array {
 	return $wpdb->get_results($wpdb->prepare($sql, $metric, $from), ARRAY_N);
 }
 
+/**
+ * Замовлення, створені від дня $from: кількість, виконані, скасовані, сума й середній чек виконаних, звідки замовляли.
+ * Замовлення до початку обліку джерела не мають (source = '').
+ */
+function raky_stats_orders(string $from): array {
+	$stats = ['all' => 0, 'completed' => 0, 'cancelled' => 0, 'revenue' => 0.0, 'source' => ['mobile' => 0, 'desktop' => 0, 'app' => 0, '' => 0]];
+	$statuses = array_diff(array_keys(wc_get_order_statuses()), ['wc-checkout-draft']);
+	foreach (wc_get_orders(['limit' => -1, 'status' => $statuses, 'date_created' => '>=' . $from, 'type' => 'shop_order']) as $order) {
+		$status = $order->get_status();
+		if (in_array($status, ['cancelled', 'refunded', 'failed'], true)) {
+			$stats['cancelled']++;
+			continue;
+		}
+		$stats['all']++;
+		$source = (string) $order->get_meta('_raky_source');
+		$stats['source'][isset($stats['source'][$source]) ? $source : '']++;
+		if ($status === 'completed') {
+			$stats['completed']++;
+			$stats['revenue'] += (float) $order->get_total();
+		}
+	}
+	return $stats;
+}
+
 function raky_stats_source_name(string $item): string {
 	return [
 		'direct'    => 'Прямі заходи й закладки',
@@ -174,6 +237,11 @@ function raky_stats_page(): void {
 	$pages    = raky_stats_top('view', $from, 15);
 	$app      = array_column(raky_stats_top('app', $from), 2, 0);
 	$app_all  = array_column(raky_stats_top('app', '2000-01-01'), 2, 0);
+	raky_stats_signup_phones();
+	$orders      = raky_stats_orders($from);
+	$orders_all  = raky_stats_orders('2000-01-01');
+	$signups     = array_column(raky_stats_top('signup', $from), 2, 0);
+	$signups_all = array_column(raky_stats_top('signup', '2000-01-01'), 2, 0);
 
 	$total_visitors = array_sum($visitors);
 	$total_views    = array_sum($views);
@@ -271,6 +339,40 @@ function raky_stats_page(): void {
 			</div>
 		</div>
 		<p class="muted">Рахуються лише справжні браузери: пошукові роботи й ваші перегляди, коли ви увійшли в адмінку, не враховуються. Особисті дані відвідувачів (IP, cookie) не зберігаються.</p>
+
+		<h2>Покупки</h2>
+		<div class="cards">
+			<div class="card"><span>Замовлень за період</span><b><?php echo esc_html(number_format_i18n($orders['all'])); ?></b></div>
+			<div class="card"><span>Виконано</span><b><?php echo esc_html(number_format_i18n($orders['completed'])); ?></b></div>
+			<div class="card"><span>Сума виконаних</span><b><?php echo wp_kses_post(wc_price($orders['revenue'], ['decimals' => 0])); ?></b></div>
+			<div class="card"><span>Середній чек</span><b><?php echo wp_kses_post(wc_price($orders['completed'] ? $orders['revenue'] / $orders['completed'] : 0, ['decimals' => 0])); ?></b></div>
+			<div class="card"><span>Скасовано</span><b><?php echo esc_html(number_format_i18n($orders['cancelled'])); ?></b></div>
+		</div>
+		<div class="cards">
+			<div class="card"><span>З телефона</span><b><?php echo esc_html(number_format_i18n($orders['source']['mobile'])); ?></b></div>
+			<div class="card"><span>З комп’ютера</span><b><?php echo esc_html(number_format_i18n($orders['source']['desktop'])); ?></b></div>
+			<div class="card"><span>Із застосунку</span><b><?php echo esc_html(number_format_i18n($orders['source']['app'])); ?></b></div>
+			<div class="card"><span>Виконано за весь час</span><b><?php echo esc_html(number_format_i18n($orders_all['completed'])); ?></b></div>
+		</div>
+		<p class="muted">«Замовлень» — усі, крім скасованих, зокрема ті, що ще в роботі. Сума й середній чек — лише за виконаними.
+			<?php if ($orders['source']['']) : ?>
+				<?php echo esc_html(sprintf('%s — зроблені до початку обліку, тож пристрій невідомий: вони є в «Замовлень», але не в розбивці.', number_format_i18n($orders['source']['']))); ?>
+			<?php endif; ?>
+		</p>
+
+		<h2>Зареєстровані клієнти</h2>
+		<div class="cards">
+			<div class="card"><span>Усього</span><b><?php echo esc_html(number_format_i18n(array_sum($signups_all))); ?></b></div>
+			<div class="card"><span>За період</span><b><?php echo esc_html(number_format_i18n(array_sum($signups))); ?></b></div>
+			<div class="card"><span>З телефона</span><b><?php echo esc_html(number_format_i18n($signups['mobile'] ?? 0)); ?></b></div>
+			<div class="card"><span>З комп’ютера</span><b><?php echo esc_html(number_format_i18n($signups['desktop'] ?? 0)); ?></b></div>
+			<div class="card"><span>Із застосунку</span><b><?php echo esc_html(number_format_i18n($signups['app'] ?? 0)); ?></b></div>
+		</div>
+		<p class="muted">Реєстрація — перший вхід через Telegram із підтвердженим номером. Повторні входи й вхід з іншого пристрою не рахуються.
+			<?php if (! empty($signups_all['earlier'])) : ?>
+				<?php echo esc_html(sprintf('%s — увійшли до початку обліку, тож пристрій невідомий: вони є в «Усього», але не в розбивці.', number_format_i18n($signups_all['earlier']))); ?>
+			<?php endif; ?>
+		</p>
 
 		<h2>Застосунок</h2>
 		<div class="cards">

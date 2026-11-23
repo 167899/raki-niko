@@ -203,6 +203,9 @@ function raky_rest_create_order(WP_REST_Request $request) {
 	if (is_wp_error($order)) {
 		return raky_error('raky_order_failed', 'Не вдалося створити замовлення.', 500);
 	}
+	// Звідки замовили — для статистики. Застосунок каже сам, сайт — за браузером.
+	$source = (string) $request->get_param('source');
+	$order->update_meta_data('_raky_source', in_array($source, ['app', 'mobile', 'desktop'], true) ? $source : (wp_is_mobile() ? 'mobile' : 'desktop'));
 
 	foreach ($lines as $line) {
 		$line_total = $line['unit_price'] * $line['quantity'];
